@@ -5,9 +5,6 @@ Library providing OpenTSDB API via Express to a given (seperate) backend.
 
 ```
 var express = require('express');
-var bodyParser = require('body-parser');
-var router = express.Router();
-router.use(bodyParser.json());
 var api = require('nodetsdb-api');
 
 // init api with a backend
@@ -21,6 +18,7 @@ var conf = {
     logRequests: false
 };
 
+var app = express();
 api.install(app, conf);
 
 // start the server

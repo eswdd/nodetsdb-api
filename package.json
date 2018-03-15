@@ -1,6 +1,6 @@
 {
-  "version": "0.3.2",
-  "name": "faketsdb",
+  "version": "0.0.0",
+  "name": "nodetsdb-api",
   "description": "A fake implementation of OpenTSDB, generating random but repeatable datasets to aid offline testing of API consumers",
   "repository": "https://github.com/eswdd/faketsdb",
   "license": "GPL-3.0-or-later",
@@ -31,8 +31,5 @@
     "seedrandom": "^2.4.2",
     "moment": "^2.11.2"
   },
-  "main": "faketsdb.js",
-  "bin": {
-    "faketsdb": "faketsdb.js"
-  }
+  "main": "index.js"
 }

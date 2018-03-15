@@ -2,12 +2,11 @@ var express = require('express');
 var bodyParser = require('body-parser');
 var router = express.Router();
 router.use(bodyParser.json());
-require('seedrandom');
 var moment = require('moment');
 
 var backend = undefined;
 // public interface:
-//   uidMetaFromName(type, name)
+//   backend.uidMetaFromName(type, name)
 //   backend.uidMetaFromUid(type, uid);
 //   backend.searchLookupImpl(metric, limit, useMeta);
 //   backend.performBackendQueries(startTime, endTime, ms, downsampled, metric, filters);
@@ -25,16 +24,6 @@ var uid = function(type, name) {
 var aggregatorsImpl = function(req, res) {
     // if add more here then add support in query implementation
     res.json(["avg","sum","min","max"]);
-}
-
-var tsuid = function(metric, tags) {
-    var ret = uid("metric", metric);
-    for (var k in tags) {
-        if (tags.hasOwnProperty(k)) {
-            ret += uid("tagk", k) + uid("tagv", tags[k]);
-        }
-    }
-    return ret;
 }
 
 var annotationPostImpl = function(req, res) {

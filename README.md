@@ -1,3 +1,8 @@
+[![GPL License][license-image]][license-url]
+[![Build Status][travis-image]][travis-url]
+[![Coverage][coverage-image]][coverage-url]
+
+
 # nodetsdb-api
 Library providing OpenTSDB API via Express to a given (seperate) backend.
 
@@ -29,3 +34,13 @@ var server = app.listen(config.port, function() {
     console.log('NodeTSDB API running at http://%s:%s', host, port)
 });
 ```
+
+
+[license-image]: http://img.shields.io/badge/license-GPL-blue.svg?style=flat
+[license-url]: LICENSE
+
+[travis-url]: http://travis-ci.org/eswdd/nodetsdb-api
+[travis-image]: http://img.shields.io/travis/eswdd/nodetsdb-api/master.svg?style=flat
+
+[coverage-url]: https://coveralls.io/r/eswdd/nodetsdb-api
+[coverage-image]: https://coveralls.io/repos/github/eswdd/nodetsdb-api/badge.svg

@@ -35,6 +35,106 @@ var server = app.listen(config.port, function() {
 });
 ```
 
+# backend spec
+
+```
+/**
+ * Get the uid meta data for the given named item.
+ * @param type The item type, one of (metric, tagk or tagv)
+ * @param name The item name
+ * @returns {name:String, uid:String, created:Date} or undefined
+ */
+backend.uidMetaFromName = function(type, name);
+```
+```
+/**
+ * Get the uid meta data for the given uid.
+ * @param type The item type, one of (metric, tagk or tagv)
+ * @param name The item uid
+ * @returns {name:String, uid:String, created:Date} or undefined
+ */
+backend.uidMetaFromUid = function(type, uid);
+```
+```
+/**
+ * Search for timeseries.
+ * @param metric String
+ * @param limit Number
+ * @param useMeta Boolean
+ * @returns Array of {
+ *                     metric: String,
+ *                     tags: { tagk1:tagv1, tagk2:tagv2, ... },
+ *                     tsuid: String
+ *                   }
+backend.searchLookupImpl = function(metric, limit, useMeta);
+```
+```
+/**
+ * Loads time series data for the given query, applies pre-query filtering where possible
+ * @param startTime DateTime
+ * @param endTime DateTime
+ * @param ms Boolean
+ * @param downsample String
+ * @param metric String
+ * @param filters Array of {tagk:String,type:String,filter:[String],group_by:Boolean}
+ * @returns Array of {
+ *                     metric:String,
+ *                     metric_uid:String,
+ *                     tags: { tagk: { tagk:String, tagk_uid:String, tagv:String, tagv_uid:String} }
+ *                     dps: [ [ timestamp:Number, value:Number ] ]
+ *                   }
+ */
+backend.performBackendQueries = function(startTime, endTime, ms, downsampled, metric, filters);
+```
+```
+/**
+ * Query for annotations for a set of timeseries.
+ * @param startTime DateTime
+ * @param endTime DateTime
+ * @param downsampleSeconds Number
+ * @param ms Boolean
+ * @param participatingTimeSeries Array of {
+ *                                           metric:String,
+ *                                           metric_uid:String,
+ *                                           tags: { tagk: { tagk:String, tagk_uid:String, tagv:String, tagv_uid:String} }
+ *                                           dps: [ [ timestamp:Number, value:Number ] ]
+ *                                         }
+ * @returns Array of {
+ *                     tsuid:String,
+ *                     description:String,
+ *                     notes:String,
+ *                     custom:Map,
+ *                     startTime:Date,
+ *                     endTime:Date
+ *                   }
+ */
+backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries)
+```
+```
+/**
+ * Query for annotations for a set of timeseries.
+ * @param startTime DateTime
+ * @param endTime DateTime
+ * @returns Array of {
+ *                     tsuid:String,
+ *                     description:String,
+ *                     notes:String,
+ *                     custom:Map,
+ *                     startTime:Date,
+ *                     endTime:Date
+ *                   }
+ */
+backend.performGlobalAnnotationsQuery = function(startTime, endTime);
+```
+```
+/**
+ * Look for metrics starting with a given query.
+ * @oaram query String (or undefined)
+ * @returns Array of String
+ */
+backend.suggestMetrics = function(query);
+```
+
 
 [license-image]: http://img.shields.io/badge/license-GPL-blue.svg?style=flat
 [license-url]: LICENSE

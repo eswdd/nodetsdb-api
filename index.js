@@ -10,7 +10,8 @@ var backend = undefined;
 //   backend.uidMetaFromUid(type, uid);
 //   backend.searchLookupImpl(metric, limit, useMeta);
 //   backend.performBackendQueries(startTime, endTime, ms, downsampled, metric, filters);
-//   backend.performAnnotationsQueries(startTime, endTime, participatingTimeSeries);
+//   backend.performAnnotationsQueries(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries)
+//   backend.performGlobalAnnotationsQuery(startTime, endTime);
 //   backend.suggestMetrics(query)
 
 var uid = function(type, name) {
@@ -23,7 +24,7 @@ var uid = function(type, name) {
 
 var aggregatorsImpl = function(req, res) {
     // if add more here then add support in query implementation
-    res.json(["avg","sum","min","max"]);
+    res.json(["avg","sum","min","max","count"]);
 }
 
 var annotationPostImpl = function(req, res) {
@@ -122,7 +123,11 @@ var sum = function(arr) {
         ret += arr[i];
     }
     return ret;
-}
+};
+
+var count = function(arr) {
+    return arr.length;
+};
 
 var min = function(arr) {
     var ret = null;
@@ -135,7 +140,7 @@ var min = function(arr) {
         }
     }
     return ret;
-}
+};
 
 var max = function(arr) {
     var ret = null;
@@ -148,7 +153,7 @@ var max = function(arr) {
         }
     }
     return ret;
-}
+};
 
 
 
@@ -324,7 +329,7 @@ var rawTimeSeriesForTagSet = function(rawTimeSeries, tagset) {
     return ret;
 }
 
-var performSingleMetricQuery = function(startTime, endTime, rand, m, arrays, ms, showQuery, annotations, globalAnnotations, globalAnnotationsArray, showTsuids) {
+var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQuery, annotations, globalAnnotations, globalAnnotationsArray, showTsuids) {
     var colonSplit = m.split(":");
     var aggregator = colonSplit[0];
     var rate = false;
@@ -477,7 +482,7 @@ var performSingleMetricQuery = function(startTime, endTime, rand, m, arrays, ms,
         }
 
         if (participatingTimeSeries.length > 0) {
-            var annotationsArray = backend.performAnnotationsQueries(startTime, endTime, participatingTimeSeries);
+            var annotationsArray = backend.performAnnotationsQueries(startTime, endTime, downsampleNumberComponent, ms, participatingTimeSeries);
             var tsuids = [];
             for (var p=0; p<participatingTimeSeries.length; p++) {
                 tsuids.push(participatingTimeSeries[p].tsuid);
@@ -555,13 +560,16 @@ var performSingleMetricQuery = function(startTime, endTime, rand, m, arrays, ms,
                             val = sum(points);
                             break;
                         case "avg":
-                            val = sum(points)/participatingTimeSeries.length;
+                            val = avg(points)/participatingTimeSeries.length;
                             break;
                         case "min":
-                            val = sum(points);
+                            val = min(points);
                             break;
                         case "max":
-                            val = sum(points);
+                            val = max(points);
+                            break;
+                        case "count":
+                            val = count(points);
                             break;
                         default:
                             throw "unrecognized agg: "+aggregator;
@@ -625,42 +633,13 @@ var queryImpl = function(start, end, mArray, arrays, ms, showQuery, annotations,
         console.log("endTime   = "+endTime);
     }
 
-    var seed = start + (end ? end : "");
-    var rand = new Math.seedrandom(seed);
-
     var ret = [];
-    
-    var globalAnnotationsArray = [];
-    if (globalAnnotations) {
-        // populate some global annotations
-        var from = startTime.getTime();
-        var to = endTime.getTime();
-        for (var t=from; t<to; ) {
-            if (rand() <= config.probabilities.globalAnnotation) {
-                var ann = {
-                    "description": "Notice",
-                    "notes": "DAL was down during this period",
-                    "custom": null,
-                    "endTime": t+((to-from)/20),
-                    "startTime": t
-                };
-                globalAnnotationsArray.push(ann);
-            }
-            
-            // next time
-            var inc = rand() * ((to-from)/3);
-            inc += "";
-            if (inc.indexOf(".") > -1) {
-                inc = inc.substring(0, inc.indexOf("."));
-            }
-            
-            t += parseInt(inc);
-        }
-    }
+
+    var globalAnnotationsArray = backend.performGlobalAnnotationsQuery(startTime, endTime);
 
     // m=<aggregator>:[rate[{counter[,<counter_max>[,<reset_value>]]]}:][<down_sampler>:]<metric_name>[{<tag_name1>=<grouping filter>[,...<tag_nameN>=<grouping_filter>]}][{<tag_name1>=<non grouping filter>[,...<tag_nameN>=<non_grouping_filter>]}]
     for (var a=0; a<mArray.length; a++) {
-        var series = performSingleMetricQuery(startTime, endTime, rand, mArray[a], arrays, ms, showQuery, annotations, globalAnnotations, globalAnnotationsArray, showTsuids);
+        var series = performSingleMetricQuery(startTime, endTime, mArray[a], arrays, ms, showQuery, annotations, globalAnnotations, globalAnnotationsArray, showTsuids);
         ret = ret.concat(series);
         //console.log("Added "+series.length+" series")
     }
@@ -690,7 +669,6 @@ var unioningFunction = function(jsons, valueProvider) {
     var ret = [];
     for (var k in seriesByTagSet) {
         if (seriesByTagSet.hasOwnProperty(k)) {
-            var dps = {};
             var input = seriesByTagSet[k];
             var allTimes = {};
             for (var t=0; t<input.length; t++) {

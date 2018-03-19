@@ -16,7 +16,7 @@ function errorActual(msg, actual) {
     return err;
 }
 function assertArrayContainsOnly(arrayDesc, expected, actual) {
-    if (actual.length != 4) {
+    if (actual.length != expected.length) {
         return errorExpectedActual('expected '+arrayDesc+' of length '+expected.length+', got ' + actual.length, expected.length, actual.length);
     }
     for (var i=0; i<expected.length; i++) {
@@ -50,7 +50,7 @@ describe('Inline FakeTSDB', function () {
             .expect('Content-Type', /json/)
             .expect(200)
             .expect(function(res) {
-                var ret = assertArrayContainsOnly("response body array", ["avg","sum","min","max"], res.body);
+                var ret = assertArrayContainsOnly("response body array", ["avg","sum","min","max","count"], res.body);
                 if (ret) {
                     return ret;
                 }
@@ -64,7 +64,7 @@ describe('Inline FakeTSDB', function () {
             .expect('Content-Type', /json/)
             .expect(200)
             .expect(function(res) {
-                var ret = assertArrayContainsOnly("response body array", ["avg","sum","min","max"], res.body);
+                var ret = assertArrayContainsOnly("response body array", ["avg","sum","min","max","count"], res.body);
                 if (ret) {
                     return ret;
                 }
@@ -309,7 +309,10 @@ describe('Inline FakeTSDB', function () {
                 }
             ];
         };
-        backend.performAnnotationsQueries = function(startTime, endTime, participatingTimeSeries) {
+        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries) {
+            return [];
+        };
+        backend.performGlobalAnnotationsQuery = function(startTime, endTime) {
             return [];
         };
 
@@ -351,7 +354,10 @@ describe('Inline FakeTSDB', function () {
                 }
             ];
         };
-        backend.performAnnotationsQueries = function(startTime, endTime, participatingTimeSeries) {
+        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries) {
+            return [];
+        };
+        backend.performGlobalAnnotationsQuery = function(startTime, endTime) {
             return [];
         };
 
@@ -411,7 +417,10 @@ describe('Inline FakeTSDB', function () {
                 }
             ];
         };
-        backend.performAnnotationsQueries = function(startTime, endTime, participatingTimeSeries) {
+        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries) {
+            return [];
+        };
+        backend.performGlobalAnnotationsQuery = function(startTime, endTime) {
             return [];
         };
 
@@ -447,9 +456,12 @@ describe('Inline FakeTSDB', function () {
                 }
             ];
         };
-        backend.performAnnotationsQueries = function(startTime, endTime, participatingTimeSeries) {
+        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries) {
             return [];
         };
+        backend.performGlobalAnnotationsQuery = function(startTime, endTime) {
+            return [];
+        }
 
         request(server)
             .get('/api/query?start=1m-ago&m=sum:10s-avg:some.metric{}&arrays=true')

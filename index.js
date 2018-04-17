@@ -6,59 +6,98 @@ var moment = require('moment');
 
 var backend = undefined;
 // public interface:
-//   backend.uidMetaFromName(type, name)
-//   backend.uidMetaFromUid(type, uid);
-//   backend.searchLookupImpl(metric, limit, useMeta);
-//   backend.performBackendQueries(startTime, endTime, ms, downsampled, metric, filters);
-//   backend.performAnnotationsQueries(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries)
-//   backend.performGlobalAnnotationsQuery(startTime, endTime);
-//   backend.suggestMetrics(query)
+//   backend.uidMetaFromUid(type, uid, callback);
+//   backend.searchLookupImpl(metric, limit, useMeta, callback);
+//   backend.performBackendQueries(startTime, endTime, ms, downsampled, metric, filters, callback);
+//   backend.performAnnotationsQueries(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries, callback)
+//   backend.performGlobalAnnotationsQuery(startTime, endTime, callback);
+//   backend.suggestMetrics(query, callback)
+//   backend.storePoints(points, callback)
 
-var uid = function(type, name) {
-    var meta = backend.uidMetaFromName(type, name);
-    if (meta != null) {
-        return meta.uid;
-    }
-    return null;
-}
 
 var aggregatorsImpl = function(req, res) {
     // if add more here then add support in query implementation
     res.json(["avg","sum","min","max","count"]);
-}
+};
+
+var putImpl = function(req, res) {
+    var queryParams = req.query;
+    var detailed = "detailed" in queryParams;
+    var summary = "summary" in queryParams;
+    var points = req.body;
+    if (!(points instanceof Array)) {
+        points = [req.body];
+    }
+
+    backend.storePoints(points, function(responses) {
+        if (responses === undefined) {
+            res.send("Error processing put");
+            res.status(500);
+            return;
+        }
+
+        var successCount = 0;
+        var failCount = 0;
+        for (var i=0; i<points.length; i++) {
+            if (responses[i] === undefined) {
+                successCount++;
+            }
+            else {
+                failCount++;
+            }
+        }
+
+        if (failCount === 0) {
+            if (detailed || summary) {
+                res.status(200);
+            }
+            else {
+                res.status(204);
+            }
+        }
+        else {
+            res.status(400)
+        }
+
+        var response = {
+            "failed": failCount,
+            "success": successCount
+        };
+        if (detailed) {
+            var errors = [];
+            for (var i=0; i<points.length; i++) {
+                var msg = responses[i];
+                if (msg !== undefined) {
+                    errors.push({
+                        "datapoint": points[i],
+                        "error": msg
+                    });
+                }
+            }
+            response["errors"] = errors;
+        }
+        if (summary || detailed) {
+            res.json(response)
+        }
+    });
+};
 
 var annotationPostImpl = function(req, res) {
     res.json(req.body);
-}
+};
 
 var annotationDeleteImpl = function(req, res) {
     res.json(req.body);
-}
+};
 
 var annotationBulkPostImpl = function(req, res) {
     res.json(req.body);
-}
+};
+
 var searchLookupPost = function(req, res) {
     var metric = req.body.metric;
     var limit = req.body.limit;
-    var results = backend.searchLookupImpl(metric, limit, req.body.useMeta);
-    var ret = {
-        "type": "LOOKUP",
-        "metric": metric,
-        "limit": limit,
-        "time": 1,
-        "results": results,
-        "startIndex": 0,
-        "totalResults": 0
-    };
-    res.json(ret);
-}
-var searchLookupGet = function(req, res) {
-    try {
-        var queryParams = req.query;
-        var metric = queryParams["m"];
-        var limit = queryParams["limit"];
-        var results = backend.searchLookupImpl(metric, limit, queryParams["use_meta"]);
+    backend.searchLookupImpl(metric, limit, req.body.useMeta, function(results, err) {
         var ret = {
             "type": "LOOKUP",
             "metric": metric,
@@ -66,35 +105,56 @@ var searchLookupGet = function(req, res) {
             "time": 1,
             "results": results,
             "startIndex": 0,
-            "totalResults": results.length
+            "totalResults": 0
         };
         res.json(ret);
+    });
+};
+
+var searchLookupGet = function(req, res) {
+    try {
+        var queryParams = req.query;
+        var metric = queryParams["m"];
+        var limit = queryParams["limit"];
+        backend.searchLookupImpl(metric, limit, queryParams["use_meta"], function(results, err) {
+            var ret = {
+                "type": "LOOKUP",
+                "metric": metric,
+                "limit": limit,
+                "time": 1,
+                "results": results,
+                "startIndex": 0,
+                "totalResults": results.length
+            };
+            res.json(ret);
+        });
     }
     catch (e) {
         console.log(e);
     }
-}
+};
 
 var uidMetaGet = function(req, res) {
     var queryParams = req.query;
 
-    var meta = backend.uidMetaFromUid(queryParams["type"], queryParams["uid"]);
-    if (meta != null) {
-        res.json({
-            uid: meta.uid,
-            name: meta.name,
-            created: meta.created,
-            type: queryParams["type"].toUpperCase()
-        })
-    }
-    else {
-        res.status(404).json({
-            code: 404,
-            message: queryParams["type"] + " with uid "+queryParams["uid"]+" not found"
-        });
-    }
+    backend.uidMetaFromUid(queryParams["type"], queryParams["uid"], function (meta, err) {
+        if (meta != null) {
+            res.json({
+                uid: meta.uid,
+                name: meta.name,
+                created: meta.created,
+                type: queryParams["type"].toUpperCase()
+            })
+        }
+        else {
+            res.status(404).json({
+                code: 404,
+                message: queryParams["type"] + " with uid "+queryParams["uid"]+" not found"
+            });
+        }
+    });
 
-}
+};
 
 var toDateTime = function(tsdbTime) {
     if (tsdbTime.indexOf("ago")<0) {
@@ -104,57 +164,116 @@ var toDateTime = function(tsdbTime) {
         return new Date(tsdbTime > 10000000000 ? tsdbTime : tsdbTime * 1000);
     }
 
-    if (tsdbTime == null || tsdbTime == "") {
+    if (tsdbTime == null || tsdbTime === "") {
         return new Date();
     }
 
     tsdbTime = tsdbTime.split("-")[0];
     var numberComponent = tsdbTime.match(/^[0-9]+/);
     var stringComponent = tsdbTime.match(/[a-zA-Z]+$/);
-    if (numberComponent.length == 1 && stringComponent.length == 1) {
+    if (numberComponent.length === 1 && stringComponent.length === 1) {
         return moment().subtract(numberComponent[0], stringComponent[0]).toDate();
     }
     return new Date();
-}
+};
 
-var sum = function(arr) {
+var avg = function(arr, startIndex, endIndex, itemFunction) {
+    if (startIndex === undefined) {
+        startIndex = 0;
+    }
+    if (endIndex === undefined) {
+        endIndex = arr.length-1;
+    }
+    if (itemFunction === undefined) {
+        itemFunction = function(a) {return a;};
+    }
+
+    return sum(arr, startIndex, endIndex, itemFunction)/count(arr, startIndex, endIndex, itemFunction);
+};
+
+var sum = function(arr, startIndex, endIndex, itemFunction) {
+    if (startIndex === undefined) {
+        startIndex = 0;
+    }
+    if (endIndex === undefined) {
+        endIndex = arr.length-1;
+    }
+    if (itemFunction === undefined) {
+        itemFunction = function(a) {return a;};
+    }
+
     var ret = 0;
-    for (var i=0; i<arr.length; i++) {
-        ret += arr[i];
+    for (var i=startIndex; i<=endIndex; i++) {
+        ret += itemFunction(arr[i]);
     }
     return ret;
 };
 
-var count = function(arr) {
-    return arr.length;
+var count = function(arr, startIndex, endIndex /*, itemFunction */) {
+    if (startIndex === undefined) {
+        startIndex = 0;
+    }
+    if (endIndex === undefined) {
+        endIndex = arr.length-1;
+    }
+
+    return (endIndex+1)-startIndex;
 };
 
-var min = function(arr) {
+var min = function(arr, startIndex, endIndex, itemFunction) {
+    if (startIndex === undefined) {
+        startIndex = 0;
+    }
+    if (endIndex === undefined) {
+        endIndex = arr.length-1;
+    }
+    if (itemFunction === undefined) {
+        itemFunction = function(a) {return a;};
+    }
+
     var ret = null;
-    for (var i=0; i<arr.length; i++) {
+    for (var i=startIndex; i<=endIndex; i++) {
         if (!ret) {
-            ret = arr[i];
+            ret = itemFunction(arr[i]);
         }
         else {
-            ret = Math.min(arr[i], ret);
+            ret = Math.min(itemFunction(arr[i]), ret);
         }
     }
     return ret;
 };
 
-var max = function(arr) {
+var max = function(arr, startIndex, endIndex, itemFunction) {
+    if (startIndex === undefined) {
+        startIndex = 0;
+    }
+    if (endIndex === undefined) {
+        endIndex = arr.length-1;
+    }
+    if (itemFunction === undefined) {
+        itemFunction = function(a) {return a;};
+    }
+
     var ret = null;
-    for (var i=0; i<arr.length; i++) {
+    for (var i=startIndex; i<=endIndex; i++) {
         if (!ret) {
-            ret = arr[i];
+            ret = itemFunction(arr[i]);
         }
         else {
-            ret = Math.max(arr[i], ret);
+            ret = Math.max(itemFunction(arr[i]), ret);
         }
     }
     return ret;
 };
 
+
+var functions = {
+    "avg": avg,
+    "sum": sum,
+    "count": count,
+    "min": min,
+    "max": max
+};
 
 
 /**
@@ -174,10 +293,10 @@ var postBackendFiltering = function(rawTimeSeries, filters) {
         var fn = null;
         var ignoreCase = false;
         var negate = false;
-        if (filter.type == "literal_or" || filter.type == "iliteral_or"
-            || filter.type == "not_literal_or" || filter.type == "not_iliteral_or") {
+        if (filter.type === "literal_or" || filter.type === "iliteral_or"
+            || filter.type === "not_literal_or" || filter.type === "not_iliteral_or") {
             ignoreCase = filter.type.indexOf("iliteral") >= 0;
-            negate = filter.type.indexOf("not_") == 0;
+            negate = filter.type.indexOf("not_") === 0;
             if (ignoreCase) {
                 for (var m=0; m<filter.filter.length; m++) {
                     filter.filter[m] = filter.filter[m].toLowerCase();
@@ -188,10 +307,10 @@ var postBackendFiltering = function(rawTimeSeries, filters) {
                 return filter.filter.indexOf(v) >= 0;
             };
         }
-        if (filter.type == "wildcard" || filter.type == "iwildcard" || filter.type == "regexp") {
-            ignoreCase = filter.type == "iwildcard";
-            var matchAll = (filter.type.indexOf("wildcard") >= 0 && filter.filter == "*")
-                        || (filter.type == "regexp" && filter.filter == ".*");
+        if (filter.type === "wildcard" || filter.type === "iwildcard" || filter.type === "regexp") {
+            ignoreCase = filter.type === "iwildcard";
+            var matchAll = (filter.type.indexOf("wildcard") >= 0 && filter.filter === "*")
+                        || (filter.type === "regexp" && filter.filter === ".*");
             if (matchAll) {
                 fn = function(candidateValue) { return true; }
             }
@@ -212,7 +331,7 @@ var postBackendFiltering = function(rawTimeSeries, filters) {
                     }
                     catch (regexpError) {
                         // typical user error
-                        if (regexp != "*") {
+                        if (regexp !== "*") {
                             console.log("regexp("+regexp+") caused an error: "+regexpError);
                         }
                         return false;
@@ -230,12 +349,13 @@ var postBackendFiltering = function(rawTimeSeries, filters) {
                 var tagValue = rawTimeSeries[t].tags[filter.tagk].tagv;
                 if (!fn(tagValue)) {
                     rawTimeSeries.splice(t, 1);
+                    // noinspection UnnecessaryContinueJS
                     continue;
                 }
             }
         }
     }   
-}
+};
 
 /**
  * Construct the unique sets of tags found in the results which match the given filters.
@@ -283,11 +403,11 @@ var constructUniqueTagSetsFromRawResults = function(rawTimeSeries, filters) {
         }
     }
     
-    if (ret.length == 0) {
+    if (ret.length === 0) {
         ret.push({});
     }
     return ret;
-}
+};
 
 /**
  * Get the set of data series that match this tagset.
@@ -327,9 +447,194 @@ var rawTimeSeriesForTagSet = function(rawTimeSeries, tagset) {
         }
     }
     return ret;
+};
+
+var downsampleSingleTimeSeriesPoints = function(dps, startTime, endTime, downsampleIncrement, downsampleFunction, fillInPolicy) {
+    var ret = [];
+    var lastIndexInclusive = -1;
+    for (var t=startTime; t<=endTime && lastIndexInclusive<dps.length-1; t+=downsampleIncrement) {
+        var periodStart = t;
+        var periodEnd = t+downsampleIncrement;
+        var nextTimestamp = dps[lastIndexInclusive+1][0];
+        if (periodStart <= nextTimestamp && nextTimestamp < periodEnd) {
+            var startIndex = lastIndexInclusive+1;
+            var endIndex = startIndex;
+            while (endIndex < dps.length-1 && dps[endIndex+1][0] < periodEnd) {
+                endIndex++;
+            }
+
+            var value = functions[downsampleFunction](dps, startIndex, endIndex, function(item) { return item[1]; });
+            ret.push([t, value]);
+
+            lastIndexInclusive = endIndex;
+        }
+        else {
+            // now we need to use the fillInPolicy
+            switch (fillInPolicy) {
+                case "nan":
+                    ret.push([t, NaN]);
+                    break;
+                case "null":
+                    ret.push([t, null]);
+                    break;
+                case "zero":
+                    ret.push([t, 0]);
+                    break;
+                case "none":
+                default:
+                    break;
+            }
+        }
+    }
+    return ret;
+};
+
+var combineTimeSeries = function(participatingTimeSeries, tagset, aggregateTags, startTime, endTime, metric, aggregator, ms, rate, arrays, showQuery, showTsuids) {
+
+    var tsuids = [];
+    for (var p=0; p<participatingTimeSeries.length; p++) {
+        tsuids.push(participatingTimeSeries[p].tsuid);
+        if (config.verbose) {
+            console.log("data = "+JSON.stringify(participatingTimeSeries[p].dps));
+        }
+    }
+
+    /*
+    Order of query operations (* are done in here):
+        Filtering
+        Grouping
+        Downsampling
+        Interpolation *
+        Aggregation *
+        Rate Conversion *
+        Functions
+        Expressions
+     */
+
+    // now combine data as appropriate
+    var combinedDps = arrays ? [] : {};
+    var indices = new Array(participatingTimeSeries.length);
+    for (var i=0; i<indices.length; i++) {
+        indices[i] = 0;
+    }
+    if (config.verbose) {
+        console.log("    combining "+indices.length+" participating time series");
+    }
+
+    // first pass finds us the times of all points
+    var seenTimestamps = {};
+    var allTimestamps = [];
+    for (var p=0; p<participatingTimeSeries.length; p++) {
+        for (var d=0; d<participatingTimeSeries[p].dps.length; d++) {
+            var t = participatingTimeSeries[p].dps[d][0];
+            if (!seenTimestamps.hasOwnProperty(t)) {
+                seenTimestamps[t] = t;
+                allTimestamps.push(t);
+            }
+        }
+    }
+    allTimestamps.sort();
+
+    var previousT = undefined;
+    var previousVal = undefined;
+    for (var it=0; it<allTimestamps.length; it++) {
+        var t = allTimestamps[it];
+        if (config.verbose) {
+            console.log("     t = "+t);
+        }
+        var points = [];
+        for (var i=0; i<indices.length; i++) {
+            // each index should point to the lowest point which has a timestamp greater than t
+            while (indices[i]<participatingTimeSeries[i].dps.length && participatingTimeSeries[i].dps[indices[i]][0]<t) {
+                indices[i]++;
+            }
+            if (indices[i]<participatingTimeSeries[i].dps.length) {
+                if (participatingTimeSeries[i].dps[indices[i]][0]===t) {
+                    points.push(participatingTimeSeries[i].dps[indices[i]][1]);
+                }
+                else { // next dp time is greater than time desired
+                    // can't interpolate from before beginning
+                    if (indices[i]>0) {
+                        var gapSizeTime = participatingTimeSeries[i].dps[indices[i]][0] - participatingTimeSeries[i].dps[indices[i]-1][0];
+                        var gapDiff = participatingTimeSeries[i].dps[indices[i]][1] - participatingTimeSeries[i].dps[indices[i]-1][1];
+
+                        var datumToNow = t - participatingTimeSeries[i].dps[indices[i]-1][0];
+                        var datumToNowRatio = datumToNow / gapSizeTime;
+
+                        var gapDiffMultRatio = datumToNowRatio * gapDiff;
+                        var newVal = participatingTimeSeries[i].dps[indices[i]-1][1] + gapDiffMultRatio;
+                        points.push(newVal);
+                    }
+
+                }
+            }
+        }
+        if (config.verbose) {
+            console.log("      For time "+t+", partipating points = "+JSON.stringify(points));
+        }
+
+        // now we have our data points, combine them:
+        if (points.length > 0) {
+            if (functions.hasOwnProperty(aggregator)) {
+                val = functions[aggregator](points);
+            }
+            else {
+                throw "unrecognized agg: "+aggregator;
+            }
+
+            if (!ms) {
+                t = t/1000;
+            }
+
+            if (rate) {
+                var valDiff = undefined;
+                if (previousVal !== undefined) {
+                    valDiff = val - previousVal;
+                }
+                previousVal = val;
+                if (previousT !== undefined) {
+                    var timeDiff = t - previousT;
+                    if (ms) {
+                        timeDiff /= 1000;
+                    }
+                    val = valDiff / timeDiff;
+                }
+                else {
+                    val = undefined;
+                }
+            }
+
+            if (val !== undefined) {
+                if (arrays) {
+                    combinedDps.push([t, val]);
+                }
+                else {
+                    combinedDps[t] = val;
+                }
+            }
+            previousT = t;
+        }
+    }
+
+    var toPush = {
+        "metric": metric,
+        "tags": tagset,
+        "aggregatedTags": aggregateTags,
+        "dps": combinedDps
+    };
+
+    if (showQuery) {
+        toPush.query = query;
+    }
+
+    if (showTsuids) {
+        toPush.tsuids = tsuids;
+    }
+
+    return toPush;
 }
 
-var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQuery, annotations, globalAnnotations, globalAnnotationsArray, showTsuids) {
+var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQuery, annotations, globalAnnotations, globalAnnotationsArray, showTsuids, callback) {
     var colonSplit = m.split(":");
     var aggregator = colonSplit[0];
     var rate = false;
@@ -348,7 +653,6 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
     }
     var metricAndTags = colonSplit[colonSplit.length-1];
     var metric = metricAndTags;
-    var tags = [];
     var filters = [];
     var openCurly = metricAndTags.indexOf("{");
     var closeCurly = metricAndTags.indexOf("}");
@@ -362,17 +666,15 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
             var tagArray = tagString.split(",");
             for (var t=0; t<tagArray.length; t++) {
                 var kv = tagArray[t].split("=");
+                var tagk = kv[0];
                 if (kv[1].indexOf("*")>=0) {
-                    tags.push({tagk:kv[0],tagv:allTagValues(metric, kv[0])});
-                    filters.push({tagk:tags[t].tagk,type:"wildcard",filter:[kv[0]],group_by:true});
+                    filters.push({tagk:tagk,type:"wildcard",filter:[kv[0]],group_by:true});
                 }
                 else if (kv[1].indexOf("|")>=0) {
-                    tags.push({tagk:kv[0],tagv:kv[1].split("|")});
-                    filters.push({tagk:tags[t].tagk,type:"literal_or",filter:kv[1].split("|"),group_by:true});
+                    filters.push({tagk:tagk,type:"literal_or",filter:kv[1].split("|"),group_by:true});
                 }
                 else {
-                    tags.push({tagk:kv[0],tagv:[kv[1]]});
-                    filters.push({tagk:tags[t].tagk,type:"literal_or",filter:[kv[1]],group_by:true});
+                    filters.push({tagk:tagk,type:"literal_or",filter:[kv[1]],group_by:true});
                 }
             }
         }
@@ -396,224 +698,150 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
     }
 
     if (config.verbose) {
-        console.log("Metric: "+metric);
-        console.log("  Agg:  "+aggregator);
-        console.log("  Rate: "+rate);
-        console.log("  Down: "+(downsampled ? downsampled : false));
-        console.log("  Tags: "+JSON.stringify(tags));
+        console.log("Metric:    "+metric);
+        console.log("  Agg:     "+aggregator);
+        console.log("  Rate:    "+rate);
+        console.log("  Down:    "+(downsampled ? downsampled : false));
+        console.log("  Filters: "+JSON.stringify(filters));
     }
     
-    var rawTimeSeries = backend.performBackendQueries(startTime, endTime, ms, downsampled, metric, filters);
-    postBackendFiltering(rawTimeSeries, filters);
-    
-    var tagsets = constructUniqueTagSetsFromRawResults(rawTimeSeries, filters);
-
-//    tagsets = constructUniqueTagSets(tags);
-
-    if (config.verbose) {
-        console.log("  Tsets:"+JSON.stringify(tagsets));
-    }
-
-    var ret = [];
-    for (var s=0; s<tagsets.length; s++) {
-
-        var participatingTimeSeries = rawTimeSeriesForTagSet(rawTimeSeries, tagsets[s]);
-        /*
-        participatingTimeSeries = [];
-        for (var t=0; t<timeseries.length; t++) {
-            if (timeseries[t].metric == metric) {
-                var participating = true;
-                for (var i=0; i<tags.length; i++) {
-                    if (timeseries[t].tags.hasOwnProperty(tags[i].tagk)) {
-                        var ind = tags[i].tagv.indexOf(timeseries[t].tags[tags[i].tagk]);
-                        if (ind < 0) {
-                            participating = false;
-                            break;
-                        }
-                    }
-                }
-                if (participating) {
-                    if (config.verbose) {
-                        console.log("    Participant: "+t);
-                    }
-                    participatingTimeSeries.push(timeseries[t]);
-                }
-            }
-        }*/
-
-        var aggregateTags = [];
-        for (var p=0; p<participatingTimeSeries.length; p++) {
-            for (var k in participatingTimeSeries[p].tags) {
-                if (participatingTimeSeries[p].tags.hasOwnProperty(k)) {
-                    var foundInTagSet = tagsets[s].hasOwnProperty(k);
-                    if (!foundInTagSet) {
-                        if (aggregateTags.indexOf(k) < 0) {
-                            aggregateTags.push(k);
-                        }
-                    }
-                }
-            }
+    backend.performBackendQueries(startTime, endTime, ms, downsampled, metric, filters, function(rawTimeSeries, err) {
+        if (err) {
+            callback(null, err);
+            return;
         }
+        postBackendFiltering(rawTimeSeries, filters);
 
-        var downsampleNumberComponent = downsampled ? downsampled.match(/^[0-9]+/) : 10;
-        var downsampleStringComponent = downsampled ? downsampled.split("-")[0].match(/[a-zA-Z]+$/)[0] : "s";
-        var msMultiplier = ms ? 1000 : 1;
-        switch (downsampleStringComponent) {
-            case 's': downsampleNumberComponent *= 1 * msMultiplier; break;
-            case 'm': downsampleNumberComponent *= 60 * msMultiplier; break;
-            case 'h': downsampleNumberComponent *= 3600 * msMultiplier; break;
-            case 'd': downsampleNumberComponent *= 86400 * msMultiplier; break;
-            case 'w': downsampleNumberComponent *= 7 * 86400 * msMultiplier; break;
-            case 'y': downsampleNumberComponent *= 365 * 86400 * msMultiplier; break;
-            default:
-                if (config.verbose) {
-                    console.log("unrecognized downsample unit: "+downsampleStringComponent);
-                }
-        }
-
-        var startTimeNormalisedToReturnUnits = ms ? startTime.getTime() : startTime.getTime() / 1000;
-        var endTimeNormalisedToReturnUnits = ms ? endTime.getTime() : endTime.getTime() / 1000;
-        var firstTimeStamp = startTimeNormalisedToReturnUnits % downsampleNumberComponent == 0 ? startTimeNormalisedToReturnUnits :
-            Math.floor((startTimeNormalisedToReturnUnits + downsampleNumberComponent) / downsampleNumberComponent) * downsampleNumberComponent;
+        var tagsets = constructUniqueTagSetsFromRawResults(rawTimeSeries, filters);
 
         if (config.verbose) {
-            console.log("normalised startTime      = "+Math.floor(startTimeNormalisedToReturnUnits));
-            console.log("downsampleNumberComponent = "+downsampleNumberComponent);
+            console.log("  Tsets:"+JSON.stringify(tagsets));
         }
 
-        if (participatingTimeSeries.length > 0) {
-            var annotationsArray = backend.performAnnotationsQueries(startTime, endTime, downsampleNumberComponent, ms, participatingTimeSeries);
-            var tsuids = [];
-            for (var p=0; p<participatingTimeSeries.length; p++) {
-                tsuids.push(participatingTimeSeries[p].tsuid);
-                if (config.verbose) {
-                    console.log("data = "+JSON.stringify(participatingTimeSeries[p].dps));
-                }
-            }
-
-            for (var p=participatingTimeSeries.length-1; p>=0; p--) {
-                if (participatingTimeSeries[p].dps.length == 0) {
-                    participatingTimeSeries.splice(p, 1);
-                }
-            }
-
-            // now combine data as appropriate
-            var combinedDps = arrays ? [] : {};
-            var indices = new Array(participatingTimeSeries.length);
-            for (var i=0; i<indices.length; i++) {
-                indices[i] = 0;
-            }
-            if (config.verbose) {
-                console.log("    combining "+indices.length+" participating time series");
-            }
-            for (var t=firstTimeStamp; t<=endTimeNormalisedToReturnUnits; t+=downsampleNumberComponent) {
-                if (config.verbose) {
-                    console.log("     t = "+t);
-                }
-                var points = [];
-                for (var i=0; i<indices.length; i++) {
-                    while (indices[i]<participatingTimeSeries[i].dps.length && participatingTimeSeries[i].dps[indices[i]][0]<t) {
-                        indices[i]++;
-                    }
-                    if (indices[i]<participatingTimeSeries[i].dps.length && participatingTimeSeries[i].dps[indices[i]][0] == t) {
-                        if (config.verbose) {
-                            console.log("     indices["+i+"] = "+JSON.stringify(indices[i]));
-                        }
-                        if (indices[i]<participatingTimeSeries[i].dps.length) {
-                            if (participatingTimeSeries[i].dps[indices[i]][0]==t) {
-                                if (config.verbose) {
-                                    console.log("     a");
+        var ret = [];
+        function processTagSet(s) {
+            if (s<tagsets.length) {
+                var participatingTimeSeries = rawTimeSeriesForTagSet(rawTimeSeries, tagsets[s]);
+                /*
+                participatingTimeSeries = [];
+                for (var t=0; t<timeseries.length; t++) {
+                    if (timeseries[t].metric == metric) {
+                        var participating = true;
+                        for (var i=0; i<tags.length; i++) {
+                            if (timeseries[t].tags.hasOwnProperty(tags[i].tagk)) {
+                                var ind = tags[i].tagv.indexOf(timeseries[t].tags[tags[i].tagk]);
+                                if (ind < 0) {
+                                    participating = false;
+                                    break;
                                 }
-                                points.push(participatingTimeSeries[i].dps[indices[i]][1]);
                             }
-                            else { // next dp time is greater than time desired
-                                if (config.verbose) {
-                                    console.log("     b");
+                        }
+                        if (participating) {
+                            if (config.verbose) {
+                                console.log("    Participant: "+t);
+                            }
+                            participatingTimeSeries.push(timeseries[t]);
+                        }
+                    }
+                }*/
+
+                var aggregateTags = [];
+                for (var p=0; p<participatingTimeSeries.length; p++) {
+                    for (var k in participatingTimeSeries[p].tags) {
+                        if (participatingTimeSeries[p].tags.hasOwnProperty(k)) {
+                            var foundInTagSet = tagsets[s].hasOwnProperty(k);
+                            if (!foundInTagSet) {
+                                if (aggregateTags.indexOf(k) < 0) {
+                                    aggregateTags.push(k);
                                 }
-                                // can't interpolate from before beginning
-                                if (indices[i]>0) {
-                                    if (config.verbose) {
-                                        console.log("     c");
-                                    }
-                                    var gapSizeTime = participatingTimeSeries[i].dps[indices[i]][0] - participatingTimeSeries[i].dps[indices[i]-1][0];
-                                    var gapDiff = participatingTimeSeries[i].dps[indices[i]][1] - participatingTimeSeries[i].dps[indices[i]-1][1];
-
-                                    var datumToNow = t - participatingTimeSeries[i].dps[indices[i]-1][0];
-                                    var datumToNowRatio = datumToNow / gapSizeTime;
-
-                                    var gapDiffMultRatio = datumToNowRatio * gapDiff;
-                                    var newVal = participatingTimeSeries[i].dps[indices[i]-1][1] + gapDiffMultRatio;
-                                    points.push(newVal);
-                                }
-
                             }
                         }
                     }
                 }
-                if (config.verbose) {
-                    console.log("      For time "+t+", partipating points = "+JSON.stringify(points));
+
+                var downsampleNumberComponent = downsampled ? downsampled.match(/^[0-9]+/) : undefined;
+                var downsampleStringComponent = downsampled ? downsampled.split("-")[0].match(/[a-zA-Z]+$/)[0] : undefined;
+                var downsampleFunction = downsampled ? downsampled.split("-")[1] : "avg";
+                var fillInPolicy = downsampled && downsampled.split("-").length > 2 ? downsampled.split("-")[2] : "none";
+                var msMultiplier = 1000;
+                switch (downsampleStringComponent) {
+                    case 's': downsampleNumberComponent *= 1 * msMultiplier; break;
+                    case 'm': downsampleNumberComponent *= 60 * msMultiplier; break;
+                    case 'h': downsampleNumberComponent *= 3600 * msMultiplier; break;
+                    case 'd': downsampleNumberComponent *= 86400 * msMultiplier; break;
+                    case 'w': downsampleNumberComponent *= 7 * 86400 * msMultiplier; break;
+                    case 'y': downsampleNumberComponent *= 365 * 86400 * msMultiplier; break;
+                    default:
+                        if (config.verbose && downsampled) {
+                            console.log("unrecognized downsample unit: "+downsampleStringComponent);
+                        }
                 }
-                // now we have our data points, combine them:
-                if (points.length > 0) {
-                    switch (aggregator) {
-                        case "sum":
-                            val = sum(points);
-                            break;
-                        case "avg":
-                            val = avg(points)/participatingTimeSeries.length;
-                            break;
-                        case "min":
-                            val = min(points);
-                            break;
-                        case "max":
-                            val = max(points);
-                            break;
-                        case "count":
-                            val = count(points);
-                            break;
-                        default:
-                            throw "unrecognized agg: "+aggregator;
+                if (!downsampled && !ms) {
+                    downsampleNumberComponent = msMultiplier;
+                }
+
+                // todo: modify faketsdb - backend now works entirely in ms..
+                var startTimeNormalisedToReturnUnits = startTime.getTime();
+                var endTimeNormalisedToReturnUnits = endTime.getTime();
+                var firstTimeStamp = startTimeNormalisedToReturnUnits % downsampleNumberComponent == 0 ? startTimeNormalisedToReturnUnits :
+                    Math.floor((startTimeNormalisedToReturnUnits + downsampleNumberComponent) / downsampleNumberComponent) * downsampleNumberComponent;
+
+                if (config.verbose) {
+                    console.log("normalised startTime      = "+Math.floor(startTimeNormalisedToReturnUnits));
+                    console.log("downsampleNumberComponent = "+downsampleNumberComponent);
+                }
+
+                if (participatingTimeSeries.length > 0) {
+                    for (var p=participatingTimeSeries.length-1; p>=0; p--) {
+                        if (participatingTimeSeries[p].dps.length === 0) {
+                            participatingTimeSeries.splice(p, 1);
+                        }
                     }
-                    if (arrays) {
-                        combinedDps.push([t,val]);
+
+                    // downsample every timeseries before combining
+                    if (downsampleNumberComponent !== undefined) {
+                        for (var p = 0; p < participatingTimeSeries.length; p++) {
+                            participatingTimeSeries[p].dps = downsampleSingleTimeSeriesPoints(participatingTimeSeries[p].dps, startTimeNormalisedToReturnUnits, endTimeNormalisedToReturnUnits, downsampleNumberComponent, downsampleFunction, fillInPolicy);
+                        }
+                    }
+
+                    // combineTimeSeries performs aggregation, interpolation as required
+                    var toPush = combineTimeSeries(participatingTimeSeries, tagsets[s], aggregateTags, firstTimeStamp, endTimeNormalisedToReturnUnits, metric, aggregator, ms, rate, arrays, showQuery, showTsuids);
+
+
+
+
+
+                    if (globalAnnotations) {
+                        toPush.globalAnnotations = globalAnnotationsArray;
+                    }
+
+                    ret.push(toPush);
+                    if (config.verbose) {
+                        console.log("Adding time series");
+                    }
+
+                    if (annotations) {
+                        backend.performAnnotationsQueries(startTime, endTime, downsampleNumberComponent, ms, participatingTimeSeries, function(annotationsArray, err) {
+                            toPush.annotations = annotationsArray;
+                            processTagSet(s + 1)
+                        });
                     }
                     else {
-                        combinedDps[t] = val;
+                        processTagSet(s + 1)
                     }
                 }
+                else {
+                    processTagSet(s + 1);
+                }
             }
-
-            var toPush = {
-                "metric": metric,
-                "tags": tagsets[s],
-                "aggregatedTags": aggregateTags,
-                "dps": combinedDps
-            };
-
-            if (showQuery) {
-                toPush.query = query;
-            }
-
-            if (annotations) {
-                toPush.annotations = annotationsArray;
-            }
-
-            if (globalAnnotations) {
-                toPush.globalAnnotations = globalAnnotationsArray;
-            }
-
-            if (showTsuids) {
-                toPush.tsuids = tsuids;
-            }
-
-            ret.push(toPush);
-            if (config.verbose) {
-                console.log("Adding time series");
+            else {
+                callback(ret);
             }
         }
-    }
-    return ret;
-} 
+        processTagSet(0);
+    });
+};
 
 var queryImpl = function(start, end, mArray, arrays, ms, showQuery, annotations, globalAnnotations, showTsuids, res) {
     if (!start) {
@@ -635,17 +863,31 @@ var queryImpl = function(start, end, mArray, arrays, ms, showQuery, annotations,
 
     var ret = [];
 
-    var globalAnnotationsArray = backend.performGlobalAnnotationsQuery(startTime, endTime);
-
-    // m=<aggregator>:[rate[{counter[,<counter_max>[,<reset_value>]]]}:][<down_sampler>:]<metric_name>[{<tag_name1>=<grouping filter>[,...<tag_nameN>=<grouping_filter>]}][{<tag_name1>=<non grouping filter>[,...<tag_nameN>=<non_grouping_filter>]}]
-    for (var a=0; a<mArray.length; a++) {
-        var series = performSingleMetricQuery(startTime, endTime, mArray[a], arrays, ms, showQuery, annotations, globalAnnotations, globalAnnotationsArray, showTsuids);
-        ret = ret.concat(series);
-        //console.log("Added "+series.length+" series")
-    }
-
-    res.json(ret);
-}
+    backend.performGlobalAnnotationsQuery(startTime, endTime, function(globalAnnotationsArray, err) {
+        if (err) {
+            res.send(err);
+            return;
+        }
+        function doNextSingleQuery(a) {
+            // m=<aggregator>:[rate[{counter[,<counter_max>[,<reset_value>]]]}:][<down_sampler>:]<metric_name>[{<tag_name1>=<grouping filter>[,...<tag_nameN>=<grouping_filter>]}][{<tag_name1>=<non grouping filter>[,...<tag_nameN>=<non_grouping_filter>]}]
+            if (a<mArray.length) {
+                performSingleMetricQuery(startTime, endTime, mArray[a], arrays, ms, showQuery, annotations, globalAnnotations, globalAnnotationsArray, showTsuids, function(series, err) {
+                    if (err) {
+                        res.send(err);
+                        return;
+                    }
+                    ret = ret.concat(series);
+                    //console.log("Added "+series.length+" series")
+                    doNextSingleQuery(a+1);
+                });
+            }
+            else {
+                res.json(ret);
+            }
+        }
+        doNextSingleQuery(0);
+    });
+};
 
 var unioningFunction = function(jsons, valueProvider) {
 
@@ -1062,12 +1304,12 @@ sumSeries(sum:cpu.percent{host=*},sum:ifstat.bytes{host=*})
 //                console.log("nextCommaOrEnd = "+nextCommaOrEnd);
                 nextBrace = exp.indexOf("{", closeBrace+1);
 //                console.log("nextBrace = "+nextBrace);
-                if (nextCommaOrEnd < nextBrace || nextBrace == -1) {
+                if (nextCommaOrEnd < nextBrace || nextBrace === -1) {
                     metrics.push(exp.substring(index, nextCommaOrEnd).trim());
                     index = nextCommaOrEnd + 1;
                 }
                 else {
-                    closeBrace = exp.indexOf("}", nextBrace+1);
+                    closeBrace = exp.indexOf("}", nextBrace + 1);
 //                    console.log("closeBrace = "+closeBrace);
                     nextCommaOrEnd = calcNextCommaOrEnd(exp, closeBrace+1);
 //                    console.log("nextCommaOrEnd = "+nextCommaOrEnd);
@@ -1085,7 +1327,7 @@ sumSeries(sum:cpu.percent{host=*},sum:ifstat.bytes{host=*})
         if (gexpFunctions[func].extraArg) {
             extraArg = exp.substring(index, exp.indexOf(")", index)).trim();
             console.log("extraArg = "+extraArg);
-            if (extraArg == "") {
+            if (extraArg === "") {
                 // todo: error
             }
         }
@@ -1136,11 +1378,11 @@ sumSeries(sum:cpu.percent{host=*},sum:ifstat.bytes{host=*})
 
 var queryGet = function(req, res) {
     var queryParams = req.query;
-    var arrayResponse = queryParams["arrays"] && queryParams["arrays"]=="true";
-    var showQuery = queryParams["show_query"] && queryParams["show_query"]=="true";
-    var showTsuids = queryParams["show_tsuids"] && queryParams["show_tsuids"]=="true";
-    var showAnnotations = !(queryParams["no_annotations"] && queryParams["no_annotations"]=="true");
-    var globalAnnotations = queryParams["global_annotations"] && queryParams["global_annotations"]=="true";
+    var arrayResponse = queryParams["arrays"] && queryParams["arrays"]==="true";
+    var showQuery = queryParams["show_query"] && queryParams["show_query"]==="true";
+    var showTsuids = queryParams["show_tsuids"] && queryParams["show_tsuids"]==="true";
+    var showAnnotations = !(queryParams["no_annotations"] && queryParams["no_annotations"]==="true");
+    var globalAnnotations = queryParams["global_annotations"] && queryParams["global_annotations"]==="true";
     var mArray = queryParams["m"];
     mArray = [].concat( mArray );
     queryImpl(queryParams["start"],queryParams["end"],mArray,arrayResponse,queryParams["ms"],showQuery,showAnnotations,globalAnnotations,showTsuids,res);
@@ -1148,11 +1390,11 @@ var queryGet = function(req, res) {
 
 var gexpQueryGet = function(req, res) {
     var queryParams = req.query;
-    var arrayResponse = queryParams["arrays"] && queryParams["arrays"]=="true";
-    var showQuery = queryParams["show_query"] && queryParams["show_query"]=="true";
-    var showTsuids = queryParams["show_tsuids"] && queryParams["show_tsuids"]=="true";
-    var showAnnotations = !(queryParams["no_annotations"] && queryParams["no_annotations"]=="true");
-    var globalAnnotations = queryParams["global_annotations"] && queryParams["global_annotations"]=="true";
+    var arrayResponse = queryParams["arrays"] && queryParams["arrays"]==="true";
+    var showQuery = queryParams["show_query"] && queryParams["show_query"]==="true";
+    var showTsuids = queryParams["show_tsuids"] && queryParams["show_tsuids"]==="true";
+    var showAnnotations = !(queryParams["no_annotations"] && queryParams["no_annotations"]==="true");
+    var globalAnnotations = queryParams["global_annotations"] && queryParams["global_annotations"]==="true";
     var eArray = queryParams["exp"];
     eArray = [].concat( eArray );
     gexpQueryImpl(queryParams["start"],queryParams["end"],eArray,arrayResponse,queryParams["ms"],showQuery,showAnnotations,globalAnnotations,showTsuids,res);
@@ -1179,12 +1421,17 @@ var configGet = function(req, res) {
 
 var suggestImpl = function(req, res) {
     var queryParams = req.query;
-    if (queryParams["type"] == "metrics") {
-        if (!queryParams["q"] || queryParams["q"] == "") {
-            res.json(backend.suggestMetrics());
+    var max = queryParams["max"];
+    if (queryParams["type"] === "metrics") {
+        if (!queryParams["q"] || queryParams["q"] === "") {
+            backend.suggestMetrics(null, max, function(result, err) {
+                res.json(result);
+            });
         }
         else {
-            res.json(backend.suggestMetrics(queryParams["q"]));
+            backend.suggestMetrics(queryParams["q"], max, function(result, err) {
+                res.json(result);
+            });
         }
         return;
     }
@@ -1206,6 +1453,7 @@ router.get('/version', versionGet);
 router.post('/version', versionGet);
 router.get('/config', configGet);
 router.get('/uid/uidmeta', uidMetaGet);
+router.post('/put', putImpl);
 
 var applyOverrides = function(from, to) {
     for (var k in from) {
@@ -1227,7 +1475,7 @@ var applyOverrides = function(from, to) {
             }
         }
     }
-}
+};
 
 var installTsdbApi = function(app, incomingConfig) {
     if (!incomingConfig) {

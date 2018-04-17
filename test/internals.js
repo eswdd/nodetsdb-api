@@ -621,8 +621,754 @@ describe('Inline FakeTSDB Internals', function () {
         ];
         
         var tagset1 = {};
-        
+
         assert.deepEqual(rawTimeSeriesForTagSet(inputTs, tagset1), inputTs);
+    });
+
+    it('correctly combines a single time series where all points coincide with downsample boundary', function() {
+        var combineTimeSeries = faketsdb.__get__("combineTimeSeries");
+
+        var rawTimeSeries1 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002002",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type1", tagv_uid: "002"}
+            },
+            dps: [
+                [1519926560000, 1],
+                [1519926570000, 2],
+                [1519926580000, 3],
+                [1519926590000, 4]
+            ]
+        };
+
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926590000, "metric1", "sum", true, false, true, false, true);
+
+        var expectedCombinedTimeSerie =
+            {
+                metric: 'metric1',
+                tags: {},
+                tsuids: [
+                    "001001004002002"
+                ],
+                aggregatedTags: ['host','type'],
+                dps:
+                    [
+                        [1519926560000, 1],
+                        [1519926570000, 2],
+                        [1519926580000, 3],
+                        [1519926590000, 4]
+                    ]
+            };
+
+        assert.deepEqual(combinedTimeSerie, expectedCombinedTimeSerie);
+    });
+
+    it('correctly downsamples a set of points where they coincide with downsample boundary', function() {
+        var downsampleSingleTimeSeriesPoints = faketsdb.__get__("downsampleSingleTimeSeriesPoints");
+
+        var rawDps = [
+            [1519926560000, 1],
+            [1519926570000, 2],
+            [1519926580000, 3],
+            [1519926590000, 4]
+        ];
+
+        var dps = downsampleSingleTimeSeriesPoints(rawDps, 1519926560000, 1519926590000, 10000, "avg", "none");
+
+        var expectedDps = [
+            [1519926560000, 1],
+            [1519926570000, 2],
+            [1519926580000, 3],
+            [1519926590000, 4]
+        ];
+
+        assert.deepEqual(dps, expectedDps);
+    });
+
+    it('correctly downsamples a set of points where they are offset from downsample boundary', function() {
+        var downsampleSingleTimeSeriesPoints = faketsdb.__get__("downsampleSingleTimeSeriesPoints");
+
+        var rawDps = [
+            [1519926565000, 1],
+            [1519926575000, 2],
+            [1519926585000, 3],
+            [1519926595000, 4]
+        ];
+
+        var dps = downsampleSingleTimeSeriesPoints(rawDps, 1519926560000, 1519926590000, 10000, "avg", "none");
+
+        var expectedDps = [
+            [1519926560000, 1],
+            [1519926570000, 2],
+            [1519926580000, 3],
+            [1519926590000, 4]
+        ];
+
+        assert.deepEqual(dps, expectedDps);
+    });
+
+    it('correctly applies the fill in policy of none when downsampling a set of points where there are gaps', function() {
+        var downsampleSingleTimeSeriesPoints = faketsdb.__get__("downsampleSingleTimeSeriesPoints");
+
+        var rawDps = [
+            [1519926565000, 1],
+            [1519926585000, 3],
+            [1519926595000, 4]
+        ];
+
+        var dps = downsampleSingleTimeSeriesPoints(rawDps, 1519926560000, 1519926590000, 10000, "avg", "none");
+
+        var expectedDps = [
+            [1519926560000, 1],
+            [1519926580000, 3],
+            [1519926590000, 4]
+        ];
+
+        assert.deepEqual(dps, expectedDps);
+    });
+
+    it('correctly applies the fill in policy of nan when downsampling a set of points where there are gaps', function() {
+        var downsampleSingleTimeSeriesPoints = faketsdb.__get__("downsampleSingleTimeSeriesPoints");
+
+        var rawDps = [
+            [1519926565000, 1],
+            [1519926585000, 3],
+            [1519926595000, 4]
+        ];
+
+        var dps = downsampleSingleTimeSeriesPoints(rawDps, 1519926560000, 1519926590000, 10000, "avg", "nan");
+
+        var expectedDps = [
+            [1519926560000, 1],
+            [1519926570000, NaN],
+            [1519926580000, 3],
+            [1519926590000, 4]
+        ];
+
+        assert.deepEqual(dps.length, 4);
+        assert.deepEqual(dps[0], expectedDps[0]);
+        assert.deepEqual(dps[1][0], expectedDps[1][0]);
+        if (!isNaN(dps[1][1])) {
+            assert.fail("Expect value for point 1 to be NaN");
+        }
+        assert.deepEqual(dps[2], expectedDps[2]);
+        assert.deepEqual(dps[3], expectedDps[3]);
+    });
+
+    it('correctly applies the fill in policy of null when downsampling a set of points where there are gaps', function() {
+        var downsampleSingleTimeSeriesPoints = faketsdb.__get__("downsampleSingleTimeSeriesPoints");
+
+        var rawDps = [
+            [1519926565000, 1],
+            [1519926585000, 3],
+            [1519926595000, 4]
+        ];
+
+        var dps = downsampleSingleTimeSeriesPoints(rawDps, 1519926560000, 1519926590000, 10000, "avg", "null");
+
+        var expectedDps = [
+            [1519926560000, 1],
+            [1519926570000, null],
+            [1519926580000, 3],
+            [1519926590000, 4]
+        ];
+
+        assert.deepEqual(dps, expectedDps);
+    });
+
+    it('correctly applies the fill in policy of zero when downsampling a set of points where there are gaps', function() {
+        var downsampleSingleTimeSeriesPoints = faketsdb.__get__("downsampleSingleTimeSeriesPoints");
+
+        var rawDps = [
+            [1519926565000, 1],
+            [1519926585000, 3],
+            [1519926595000, 4]
+        ];
+
+        var dps = downsampleSingleTimeSeriesPoints(rawDps, 1519926560000, 1519926590000, 10000, "avg", "zero");
+
+        var expectedDps = [
+            [1519926560000, 1],
+            [1519926570000, 0],
+            [1519926580000, 3],
+            [1519926590000, 4]
+        ];
+
+        assert.deepEqual(dps, expectedDps);
+    });
+
+    it('correctly combines a single time series', function() {
+        var combineTimeSeries = faketsdb.__get__("combineTimeSeries");
+
+        var rawTimeSeries1 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002002",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type1", tagv_uid: "002"}
+            },
+            dps: [
+                [1519926565000, 1],
+                [1519926575000, 2],
+                [1519926585000, 3],
+                [1519926595000, 4]
+            ]
+        };
+
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", false, false, true, false, true);
+
+        var expectedCombinedTimeSerie =
+            {
+                metric: 'metric1',
+                tags: {},
+                tsuids: [
+                    "001001004002002"
+                ],
+                aggregatedTags: ['host','type'],
+                dps:
+                    [
+                        [1519926565, 1],
+                        [1519926575, 2],
+                        [1519926585, 3],
+                        [1519926595, 4]
+                    ]
+            };
+
+        assert.deepEqual(combinedTimeSerie, expectedCombinedTimeSerie);
+    });
+
+    it('correctly combines a single time series with ms precision', function() {
+        var combineTimeSeries = faketsdb.__get__("combineTimeSeries");
+
+        var rawTimeSeries1 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002002",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type1", tagv_uid: "002"}
+            },
+            dps: [
+                [1519926565000, 1],
+                [1519926575000, 2],
+                [1519926585000, 3],
+                [1519926595000, 4]
+            ]
+        };
+
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, false, true, false, true);
+
+        var expectedCombinedTimeSerie =
+            {
+                metric: 'metric1',
+                tags: {},
+                tsuids: [
+                    "001001004002002"
+                ],
+                aggregatedTags: ['host','type'],
+                dps:
+                    [
+                        [1519926565000, 1],
+                        [1519926575000, 2],
+                        [1519926585000, 3],
+                        [1519926595000, 4]
+                    ]
+            };
+
+        assert.deepEqual(combinedTimeSerie, expectedCombinedTimeSerie);
+    });
+
+    it('correctly combines a single time series where all points do not coincide with downsample boundary', function() {
+        var combineTimeSeries = faketsdb.__get__("combineTimeSeries");
+
+        var rawTimeSeries1 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002002",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type1", tagv_uid: "002"}
+            },
+            dps: [
+                [1519926565000, 1],
+                [1519926595000, 4]
+            ]
+        };
+
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, false, true, false, true);
+
+        var expectedCombinedTimeSerie =
+            {
+                metric: 'metric1',
+                tags: {},
+                tsuids: [
+                    "001001004002002"
+                ],
+                aggregatedTags: ['host','type'],
+                dps:
+                    [
+                        [1519926565000, 1],
+                        [1519926595000, 4]
+                    ]
+            };
+
+        assert.deepEqual(combinedTimeSerie, expectedCombinedTimeSerie);
+    });
+
+    it('correctly combines a 2 time series where no interpolation is required', function() {
+        var combineTimeSeries = faketsdb.__get__("combineTimeSeries");
+
+        var rawTimeSeries1 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002002",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type1", tagv_uid: "002"}
+            },
+            dps: [
+                [1519926565000, 1],
+                [1519926595000, 4]
+            ]
+        };
+        var rawTimeSeries2 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002003",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type2", tagv_uid: "003"}
+            },
+            dps: [
+                [1519926565000, 1],
+                [1519926595000, 4]
+            ]
+        };
+
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, false, true, false, true);
+
+        var expectedCombinedTimeSerie =
+            {
+                metric: 'metric1',
+                tags: {},
+                tsuids: [
+                    "001001004002002",
+                    "001001004002003"
+                ],
+                aggregatedTags: ['host','type'],
+                dps:
+                    [
+                        [1519926565000, 2],
+                        [1519926595000, 8]
+                    ]
+            };
+
+        assert.deepEqual(combinedTimeSerie, expectedCombinedTimeSerie);
+    });
+
+    it('correctly combines a 2 time series where interpolation is required', function() {
+        var combineTimeSeries = faketsdb.__get__("combineTimeSeries");
+
+        var rawTimeSeries1 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002002",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type1", tagv_uid: "002"}
+            },
+            dps: [
+                [1519926565000, 1],
+                [1519926595000, 4]
+            ]
+        };
+        var rawTimeSeries2 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002003",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type2", tagv_uid: "003"}
+            },
+            dps: [
+                [1519926575000, 2],
+                [1519926585000, 3]
+            ]
+        };
+
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, false, true, false, true);
+
+        var expectedCombinedTimeSerie =
+            {
+                metric: 'metric1',
+                tags: {},
+                tsuids: [
+                    "001001004002002",
+                    "001001004002003"
+                ],
+                aggregatedTags: ['host','type'],
+                dps:
+                    [
+                        [1519926565000, 1],
+                        [1519926575000, 4],
+                        [1519926585000, 6],
+                        [1519926595000, 4]
+                    ]
+            };
+
+        assert.deepEqual(combinedTimeSerie, expectedCombinedTimeSerie);
+    });
+
+/*
+A:
+[1519926565000, 770],
+[1519926595000, 350]
+B:
+[1519926585000, 40],
+[1519926625000, 630]
+C:
+[1519926590000, 680],
+[1519926605000, 770],
+[1519926610000, 0],
+[1519926640000, 800]
+D:
+[1519926620000, 660],
+[1519926640000, 800]
+E:
+[1519926597000, 680]
+
+T               |   A   |   B   |   C   |   D   |   E   |   avg   |
+1519926565000      770     none    none    none    none     770
+1519926585000     (490)     40     none    none    none     265
+1519926590000     (420)  (113.75)   680     none    none    404.5833333333333
+1519926595000      350   (187.5)  (707)    none    none     415.8333333333333
+1519926597000      none   (217)   (722)    none    680      539.6666666666666
+1519926605000      none   (335)    770     none    none     552.5
+1519926610000      none  (408.75)   0      none    none     204.375
+1519926620000      none  (556.25) (266.67) 660     none     494.3055555555555
+1519926625000      none    630    (400)   (695)    none     575
+1519926640000      none    none    800     800     none     800
+
+
+
+ */
+
+    it('correctly combines a multiple time series where interpolation is required (complex example from docs)', function() {
+        var combineTimeSeries = faketsdb.__get__("combineTimeSeries");
+
+        var rawTimeSeries1 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002002",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type1", tagv_uid: "002"}
+            },
+            dps: [
+                [1519926565000, 770],
+                [1519926595000, 350]
+            ]
+        };
+        var rawTimeSeries2 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002003",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type2", tagv_uid: "003"}
+            },
+            dps: [
+                [1519926585000, 40],
+                [1519926625000, 630]
+            ]
+        };
+        var rawTimeSeries3 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002004",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type3", tagv_uid: "004"}
+            },
+            dps: [
+                [1519926590000, 680],
+                [1519926605000, 770],
+                [1519926610000, 0],
+                [1519926640000, 800]
+            ]
+        };
+        var rawTimeSeries4 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002005",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type4", tagv_uid: "005"}
+            },
+            dps: [
+                [1519926620000, 660],
+                [1519926640000, 800]
+            ]
+        };
+        var rawTimeSeries5 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002006",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type5", tagv_uid: "006"}
+            },
+            dps: [
+                [1519926597000, 680]
+            ]
+        };
+
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2, rawTimeSeries3, rawTimeSeries4, rawTimeSeries5], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "avg", true, false, true, false, true);
+
+        var expectedCombinedTimeSerie =
+            {
+                metric: 'metric1',
+                tags: {},
+                tsuids: [
+                    "001001004002002",
+                    "001001004002003",
+                    "001001004002004",
+                    "001001004002005",
+                    "001001004002006"
+                ],
+                aggregatedTags: ['host','type'],
+                dps:
+                    [
+                        [
+                            1519926565000,
+                            770
+                        ],
+                        [
+                            1519926585000,
+                            265
+                        ],
+                        [
+                            1519926590000,
+                            404.5833333333333
+                        ],
+                        [
+                            1519926595000,
+                            415.8333333333333
+                        ],
+                        [
+                            1519926597000,
+                            539.6666666666666
+                        ],
+                        [
+                            1519926605000,
+                            552.5
+                        ],
+                        [
+                            1519926610000,
+                            204.375
+                        ],
+                        [
+                            1519926620000,
+                            494.3055555555555
+                        ],
+                        [
+                            1519926625000,
+                            575
+                        ],
+                        [
+                            1519926640000,
+                            800
+                        ]
+                    ]
+            };
+
+        assert.deepEqual(combinedTimeSerie, expectedCombinedTimeSerie);
+    });
+
+    it('correctly rates a single time series', function() {
+        var combineTimeSeries = faketsdb.__get__("combineTimeSeries");
+
+        var rawTimeSeries1 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002002",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type1", tagv_uid: "002"}
+            },
+            dps: [
+                [1519926565000, 1],
+                [1519926575000, 2],
+                [1519926585000, 3],
+                [1519926595000, 4]
+            ]
+        };
+
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", false, true, true, false, true);
+
+        var expectedCombinedTimeSerie =
+            {
+                metric: 'metric1',
+                tags: {},
+                tsuids: [
+                    "001001004002002"
+                ],
+                aggregatedTags: ['host','type'],
+                dps:
+                    [
+                        [1519926575, 0.1],
+                        [1519926585, 0.1],
+                        [1519926595, 0.1]
+                    ]
+            };
+
+        assert.deepEqual(combinedTimeSerie, expectedCombinedTimeSerie);
+    });
+
+    it('correctly rates a single time series with ms precision', function() {
+        var combineTimeSeries = faketsdb.__get__("combineTimeSeries");
+
+        var rawTimeSeries1 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002002",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type1", tagv_uid: "002"}
+            },
+            dps: [
+                [1519926565000, 1],
+                [1519926575000, 2],
+                [1519926585000, 3],
+                [1519926595000, 4]
+            ]
+        };
+
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, true, true, false, true);
+
+        var expectedCombinedTimeSerie =
+            {
+                metric: 'metric1',
+                tags: {},
+                tsuids: [
+                    "001001004002002"
+                ],
+                aggregatedTags: ['host','type'],
+                dps:
+                    [
+                        [1519926575000, 0.1],
+                        [1519926585000, 0.1],
+                        [1519926595000, 0.1]
+                    ]
+            };
+
+        assert.deepEqual(combinedTimeSerie, expectedCombinedTimeSerie);
+    });
+
+    it('correctly rates 2 time series where no interpolation is required', function() {
+        var combineTimeSeries = faketsdb.__get__("combineTimeSeries");
+
+        var rawTimeSeries1 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002002",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type1", tagv_uid: "002"}
+            },
+            dps: [
+                [1519926565000, 1],
+                [1519926595000, 4]
+            ]
+        };
+        var rawTimeSeries2 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002003",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type2", tagv_uid: "003"}
+            },
+            dps: [
+                [1519926565000, 1],
+                [1519926595000, 4]
+            ]
+        };
+
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, true, true, false, true);
+
+        var expectedCombinedTimeSerie =
+            {
+                metric: 'metric1',
+                tags: {},
+                tsuids: [
+                    "001001004002002",
+                    "001001004002003"
+                ],
+                aggregatedTags: ['host','type'],
+                dps:
+                    [
+                        [1519926595000, 0.2]
+                    ]
+            };
+
+        assert.deepEqual(combinedTimeSerie, expectedCombinedTimeSerie);
+    });
+
+    it('correctly rates 2 time series where interpolation is required', function() {
+        var combineTimeSeries = faketsdb.__get__("combineTimeSeries");
+
+        var rawTimeSeries1 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002002",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type1", tagv_uid: "002"}
+            },
+            dps: [
+                [1519926565000, 1],
+                [1519926595000, 4]
+            ]
+        };
+        var rawTimeSeries2 = {
+            metric: "metric1",
+            metric_uid: "001",
+            tsuid: "001001004002003",
+            tags: {
+                "host": {tagk:"host", tagk_uid: "001", tagv: "host11", tagv_uid: "004"},
+                "type": {tagk:"type", tagk_uid: "002", tagv: "type2", tagv_uid: "003"}
+            },
+            dps: [
+                [1519926575000, 2],
+                [1519926585000, 3]
+            ]
+        };
+
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, true, true, false, true);
+
+        var expectedCombinedTimeSerie =
+            {
+                metric: 'metric1',
+                tags: {},
+                tsuids: [
+                    "001001004002002",
+                    "001001004002003"
+                ],
+                aggregatedTags: ['host','type'],
+                dps:
+                    [
+                        [1519926575000, 0.3],
+                        [1519926585000, 0.2],
+                        [1519926595000, -0.2]
+                    ]
+            };
+
+        assert.deepEqual(combinedTimeSerie, expectedCombinedTimeSerie);
     });
     
     

@@ -7,6 +7,24 @@
 # nodetsdb-api
 Library providing OpenTSDB API via Express to a given (seperate) backend.
 
+Current implemented endpoints:
+
+ * /api/aggregators - GET
+ * /api/aggregators - POST
+ * /api/annotation - DELETE
+ * /api/annotation - POST
+ * /api/annotation/bulk - POST
+ * /api/config - GET
+ * /api/put - POST
+ * /api/query - GET
+ * /api/query/gexp - GET
+ * /api/search/lookup - GET
+ * /api/search/lookup - POST
+ * /api/suggest - GET
+ * /api/uid/uidmeta - GET
+ * /api/version - GET
+ * /api/version - POST
+
 # usage
 
 ```
@@ -40,21 +58,12 @@ var server = app.listen(config.port, function() {
 
 ```
 /**
- * Get the uid meta data for the given named item.
- * @param type The item type, one of (metric, tagk or tagv)
- * @param name The item name
- * @returns {name:String, uid:String, created:Date} or undefined
- */
-backend.uidMetaFromName = function(type, name);
-```
-```
-/**
  * Get the uid meta data for the given uid.
  * @param type The item type, one of (metric, tagk or tagv)
  * @param name The item uid
- * @returns {name:String, uid:String, created:Date} or undefined
+ * @param callback Callback function, arguments (data, err), where data is {name:String, uid:String, created:Date} or undefined
  */
-backend.uidMetaFromUid = function(type, uid);
+backend.uidMetaFromUid = function(type, uid, callback);
 ```
 ```
 /**
@@ -62,12 +71,12 @@ backend.uidMetaFromUid = function(type, uid);
  * @param metric String
  * @param limit Number
  * @param useMeta Boolean
- * @returns Array of {
+ * @param callback Callback function, arguments (data, err), where data is Array of {
  *                     metric: String,
  *                     tags: { tagk1:tagv1, tagk2:tagv2, ... },
  *                     tsuid: String
  *                   }
-backend.searchLookupImpl = function(metric, limit, useMeta);
+backend.searchLookupImpl = function(metric, limit, useMeta, callback);
 ```
 ```
 /**
@@ -78,14 +87,15 @@ backend.searchLookupImpl = function(metric, limit, useMeta);
  * @param downsample String
  * @param metric String
  * @param filters Array of {tagk:String,type:String,filter:[String],group_by:Boolean}
- * @returns Array of {
+ * @param callback Callback function, arguments (data, err), where data is Array of {
  *                     metric:String,
  *                     metric_uid:String,
+ *                     tsuid:String,
  *                     tags: { tagk: { tagk:String, tagk_uid:String, tagv:String, tagv_uid:String} }
  *                     dps: [ [ timestamp:Number, value:Number ] ]
  *                   }
  */
-backend.performBackendQueries = function(startTime, endTime, ms, downsampled, metric, filters);
+backend.performBackendQueries = function(startTime, endTime, ms, downsampled, metric, filters, callback);
 ```
 ```
 /**
@@ -100,7 +110,7 @@ backend.performBackendQueries = function(startTime, endTime, ms, downsampled, me
  *                                           tags: { tagk: { tagk:String, tagk_uid:String, tagv:String, tagv_uid:String} }
  *                                           dps: [ [ timestamp:Number, value:Number ] ]
  *                                         }
- * @returns Array of {
+ * @param callback Callback function, arguments (data, err), where data is Array of {
  *                     tsuid:String,
  *                     description:String,
  *                     notes:String,
@@ -109,14 +119,14 @@ backend.performBackendQueries = function(startTime, endTime, ms, downsampled, me
  *                     endTime:Date
  *                   }
  */
-backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries)
+backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries, callback)
 ```
 ```
 /**
  * Query for annotations for a set of timeseries.
  * @param startTime DateTime
  * @param endTime DateTime
- * @returns Array of {
+ * @param callback Callback function, arguments (data, err), where data is Array of {
  *                     tsuid:String,
  *                     description:String,
  *                     notes:String,
@@ -125,15 +135,29 @@ backend.performAnnotationsQueries = function(startTime, endTime, downsampleSecon
  *                     endTime:Date
  *                   }
  */
-backend.performGlobalAnnotationsQuery = function(startTime, endTime);
+backend.performGlobalAnnotationsQuery = function(startTime, endTime, callback);
 ```
 ```
 /**
  * Look for metrics starting with a given query.
- * @oaram query String (or undefined)
- * @returns Array of String
+ * @param query String (or undefined)
+ * @param max Integer (or undefined)
+ * @param callback Callback function, arguments (data, err), where data is Array of String
  */
-backend.suggestMetrics = function(query);
+backend.suggestMetrics = function(query, max, callback);
+```
+```
+/**
+ * Store datapoints.
+ * @param points Array of {
+ *                          metric:String,
+ *                          timestamp:Number,
+ *                          value:Number|String,
+ *                          tags: { tagk1:tagv1, tagk2:tagv2, ... }
+ *                        }
+ * @param callback Callback function, arguments (data, err), where data is Array of String (same length as points parameter, value if error at each index, undefined if success)
+ */
+backend.storePoints = function(points, callback);
 ```
 
 

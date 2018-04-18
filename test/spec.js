@@ -295,7 +295,7 @@ describe('Inline FakeTSDB', function () {
     });
 
     it('responds to GET  /api/query', function(done) {
-        backend.performBackendQueries = function (startTime, endTime, ms, downsampled, metric, filters, callback) {
+        backend.performBackendQueries = function (startTime, endTime, downsampled, metric, filters, callback) {
             callback([
                 {
                     metric: "some.metric",
@@ -309,7 +309,7 @@ describe('Inline FakeTSDB', function () {
                 }
             ]);
         };
-        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries, callback) {
+        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, participatingTimeSeries, callback) {
             callback([]);
         };
         backend.performGlobalAnnotationsQuery = function(startTime, endTime, callback) {
@@ -340,7 +340,7 @@ describe('Inline FakeTSDB', function () {
     });
 
     it('responds to GET  /api/query for ms data', function(done) {
-        backend.performBackendQueries = function (startTime, endTime, ms, downsampled, metric, filters, callback) {
+        backend.performBackendQueries = function (startTime, endTime, downsampled, metric, filters, callback) {
             callback([
                 {
                     metric: "some.metric",
@@ -356,7 +356,7 @@ describe('Inline FakeTSDB', function () {
                 }
             ]);
         };
-        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries, callback) {
+        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, participatingTimeSeries, callback) {
             callback([]);
         };
         backend.performGlobalAnnotationsQuery = function(startTime, endTime, callback) {
@@ -389,7 +389,7 @@ describe('Inline FakeTSDB', function () {
     });
 
     it('responds to GET  /api/query for an aggregated call', function(done) {
-        backend.performBackendQueries = function (startTime, endTime, ms, downsampled, metric, filters, callback) {
+        backend.performBackendQueries = function (startTime, endTime, downsampled, metric, filters, callback) {
             callback([
                 {
                     metric: "some.metric",
@@ -419,7 +419,7 @@ describe('Inline FakeTSDB', function () {
                 }
             ]);
         };
-        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries, callback) {
+        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, participatingTimeSeries, callback) {
             callback([]);
         };
         backend.performGlobalAnnotationsQuery = function(startTime, endTime, callback) {
@@ -449,7 +449,7 @@ describe('Inline FakeTSDB', function () {
     });
 
     it('responds to GET  /api/query for an aggregated call with an empty tag string', function(done) {
-        backend.performBackendQueries = function (startTime, endTime, ms, downsampled, metric, filters, callback) {
+        backend.performBackendQueries = function (startTime, endTime, downsampled, metric, filters, callback) {
             callback([
                 {
                     metric: "some.metric",
@@ -458,7 +458,7 @@ describe('Inline FakeTSDB', function () {
                 }
             ]);
         };
-        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries, callback) {
+        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, participatingTimeSeries, callback) {
             callback([]);
         };
         backend.performGlobalAnnotationsQuery = function(startTime, endTime, callback) {

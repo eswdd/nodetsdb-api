@@ -8,8 +8,8 @@ var backend = undefined;
 // public interface:
 //   backend.uidMetaFromUid(type, uid, callback);
 //   backend.searchLookupImpl(metric, limit, useMeta, callback);
-//   backend.performBackendQueries(startTime, endTime, ms, downsampled, metric, filters, callback);
-//   backend.performAnnotationsQueries(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries, callback)
+//   backend.performBackendQueries(startTime, endTime, downsampled, metric, filters, callback);
+//   backend.performAnnotationsQueries(startTime, endTime, downsampleSeconds, participatingTimeSeries, callback)
 //   backend.performGlobalAnnotationsQuery(startTime, endTime, callback);
 //   backend.suggestMetrics(query, callback)
 //   backend.storePoints(points, callback)
@@ -583,7 +583,7 @@ var combineTimeSeries = function(participatingTimeSeries, tagset, aggregateTags,
             }
 
             if (!ms) {
-                t = t/1000;
+                t = Math.round(t/1000);
             }
 
             if (rate) {
@@ -639,15 +639,15 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
     var aggregator = colonSplit[0];
     var rate = false;
     var downsampled = false;
-    if (colonSplit[1].indexOf("rate") == 0) {
+    if (colonSplit[1].indexOf("rate") === 0) {
         rate = true;
         // todo: consider supporting counters?
-        if (colonSplit.length == 4) {
+        if (colonSplit.length === 4) {
             downsampled = colonSplit[2];
         }
     }
     else {
-        if (colonSplit.length == 3) {
+        if (colonSplit.length === 3) {
             downsampled = colonSplit[1];
         }
     }
@@ -662,7 +662,7 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
         tagString = tagString.substring(0, tagString.length-1);
 
         // some idiot specified the tag spec as {}
-        if (tagString != "") {
+        if (tagString !== "") {
             var tagArray = tagString.split(",");
             for (var t=0; t<tagArray.length; t++) {
                 var kv = tagArray[t].split("=");
@@ -705,7 +705,7 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
         console.log("  Filters: "+JSON.stringify(filters));
     }
     
-    backend.performBackendQueries(startTime, endTime, ms, downsampled, metric, filters, function(rawTimeSeries, err) {
+    backend.performBackendQueries(startTime, endTime, downsampled, metric, filters, function(rawTimeSeries, err) {
         if (err) {
             callback(null, err);
             return;
@@ -822,7 +822,7 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
                     }
 
                     if (annotations) {
-                        backend.performAnnotationsQueries(startTime, endTime, downsampleNumberComponent, ms, participatingTimeSeries, function(annotationsArray, err) {
+                        backend.performAnnotationsQueries(startTime, endTime, downsampleNumberComponent, participatingTimeSeries, function(annotationsArray, err) {
                             toPush.annotations = annotationsArray;
                             processTagSet(s + 1)
                         });

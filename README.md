@@ -83,7 +83,6 @@ backend.searchLookupImpl = function(metric, limit, useMeta, callback);
  * Loads time series data for the given query, applies pre-query filtering where possible
  * @param startTime DateTime
  * @param endTime DateTime
- * @param ms Boolean
  * @param downsample String
  * @param metric String
  * @param filters Array of {tagk:String,type:String,filter:[String],group_by:Boolean}
@@ -95,7 +94,7 @@ backend.searchLookupImpl = function(metric, limit, useMeta, callback);
  *                     dps: [ [ timestamp:Number, value:Number ] ]
  *                   }
  */
-backend.performBackendQueries = function(startTime, endTime, ms, downsampled, metric, filters, callback);
+backend.performBackendQueries = function(startTime, endTime, downsampled, metric, filters, callback);
 ```
 ```
 /**
@@ -103,7 +102,6 @@ backend.performBackendQueries = function(startTime, endTime, ms, downsampled, me
  * @param startTime DateTime
  * @param endTime DateTime
  * @param downsampleSeconds Number
- * @param ms Boolean
  * @param participatingTimeSeries Array of {
  *                                           metric:String,
  *                                           metric_uid:String,
@@ -119,7 +117,7 @@ backend.performBackendQueries = function(startTime, endTime, ms, downsampled, me
  *                     endTime:Date
  *                   }
  */
-backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, ms, participatingTimeSeries, callback)
+backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, participatingTimeSeries, callback)
 ```
 ```
 /**

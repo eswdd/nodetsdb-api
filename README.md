@@ -146,6 +146,24 @@ backend.suggestMetrics = function(query, max, callback);
 ```
 ```
 /**
+ * Look for tag keys starting with a given query.
+ * @param query String (or undefined)
+ * @param max Integer (or undefined)
+ * @param callback Callback function, arguments (data, err), where data is Array of String
+ */
+backend.suggestTagKeys = function(query, max, callback);
+```
+```
+/**
+ * Look for tag values starting with a given query.
+ * @param query String (or undefined)
+ * @param max Integer (or undefined)
+ * @param callback Callback function, arguments (data, err), where data is Array of String
+ */
+backend.suggestTagValues = function(query, max, callback);
+```
+```
+/**
  * Store datapoints.
  * @param points Array of {
  *                          metric:String,

@@ -1160,7 +1160,17 @@ var gexpFunctions = {
             // need to check tsdb code
             return null;
         }
-    }
+    }/*, TODO - undocumented function - note there's a bug in 2.3 - do we want configurable bug compatibility?
+    timeShift: {
+        maxMetrics: 26,
+        extraArg: false,
+        array_output: false,
+        process: function(ms, jsons, extraArg) {
+            // dividendSeriesList, divisor (according to graphite)
+            // need to check tsdb code
+            return null;
+        }
+    }*/
 }
 
 var gexpQueryImpl = function(start, end, eArray, arrays, ms, showQuery, annotations, globalAnnotations, showTsuids, res) {
@@ -1422,20 +1432,27 @@ var configGet = function(req, res) {
 var suggestImpl = function(req, res) {
     var queryParams = req.query;
     var max = queryParams["max"];
-    if (queryParams["type"] === "metrics") {
-        if (!queryParams["q"] || queryParams["q"] === "") {
-            backend.suggestMetrics(null, max, function(result, err) {
+    var q = (!queryParams["q"] || queryParams["q"] === "") ? null : queryParams["q"];
+    switch (queryParams["type"]) {
+        case "metrics":
+            backend.suggestMetrics(q, max, function(result, err) {
                 res.json(result);
             });
-        }
-        else {
-            backend.suggestMetrics(queryParams["q"], max, function(result, err) {
+            break;
+        case "tagk":
+            backend.suggestTagKeys(q, max, function(result, err) {
                 res.json(result);
             });
-        }
-        return;
+            break;
+        case "tagv":
+            backend.suggestTagValues(q, max, function(result, err) {
+                res.json(result);
+            });
+            break;
+        default:
+            res.json({message:"Unrecognised query type: "+queryParams["type"]});
+
     }
-    throw 'unhandled response';
 };
 
 // all routes exist here so we know what's implemented

@@ -2,6 +2,7 @@
 [![GPL License][license-image]][license-url]
 [![Build Status][travis-image]][travis-url]
 [![Coverage][coverage-image]][coverage-url]
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-api.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-api?ref=badge_shield)
 
 
 # nodetsdb-api
@@ -189,3 +190,6 @@ backend.storePoints = function(points, callback);
 
 [coverage-url]: https://coveralls.io/r/eswdd/nodetsdb-api
 [coverage-image]: https://coveralls.io/repos/github/eswdd/nodetsdb-api/badge.svg
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-api.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-api?ref=badge_large)

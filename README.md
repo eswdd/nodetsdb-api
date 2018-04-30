@@ -175,6 +175,36 @@ backend.suggestTagValues = function(query, max, callback);
  */
 backend.storePoints = function(points, callback);
 ```
+```
+/**
+ * Store annotations
+ * @param annotations Array of {
+ *                     tsuid:String,
+ *                     description:String,
+ *                     notes:String,
+ *                     custom:Map,
+ *                     startTime:Date,
+ *                     endTime:Date
+ *                   }
+ * @param callback Callback function, arguments (annotations, err)
+ */
+backend.storeAnnotations = function(annotations, callback);
+```
+```
+/**
+ * Delete annotation
+ * @param annotation {
+ *                     tsuid:String,
+ *                     description:String,
+ *                     notes:String,
+ *                     custom:Map,
+ *                     startTime:Date,
+ *                     endTime:Date
+ *                   }
+ * @param callback Callback function, arguments (null, err)
+ */
+backend.deleteAnnotation = function(annotation, callback);
+```
 
 
 [license-image]: http://img.shields.io/badge/license-GPL-blue.svg?style=flat

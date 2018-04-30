@@ -14,6 +14,14 @@ var backend = undefined;
 //   backend.suggestMetrics(query, callback)
 //   backend.storePoints(points, callback)
 
+var handleErr = function(res, err) {
+    if (err) {
+        res.status(err.code ? err.code : 500).send(err);
+        return true;
+    }
+    return false;
+}
+
 
 var aggregatorsImpl = function(req, res) {
     // if add more here then add support in query implementation
@@ -21,6 +29,10 @@ var aggregatorsImpl = function(req, res) {
 };
 
 var putImpl = function(req, res) {
+    if (!backend.storePoints) {
+        res.json(null, {code:501,message:"Storing points not supported by this backend"});
+        return;
+    }
     var queryParams = req.query;
     var detailed = "detailed" in queryParams;
     var summary = "summary" in queryParams;
@@ -29,6 +41,7 @@ var putImpl = function(req, res) {
         points = [req.body];
     }
 
+    //console.log("backend.storePoints("+JSON.stringify(points)+")");
     backend.storePoints(points, function(responses) {
         if (responses === undefined) {
             res.send("Error processing put");
@@ -83,40 +96,52 @@ var putImpl = function(req, res) {
 };
 
 var annotationPostImpl = function(req, res) {
-    res.json(req.body);
-};
-
-var annotationDeleteImpl = function(req, res) {
-    res.json(req.body);
-};
-
-var annotationBulkPostImpl = function(req, res) {
-    res.json(req.body);
-};
-
-var searchLookupPost = function(req, res) {
-    var metric = req.body.metric;
-    var limit = req.body.limit;
-    backend.searchLookupImpl(metric, limit, req.body.useMeta, function(results, err) {
-        var ret = {
-            "type": "LOOKUP",
-            "metric": metric,
-            "limit": limit,
-            "time": 1,
-            "results": results,
-            "startIndex": 0,
-            "totalResults": 0
-        };
-        res.json(ret);
+    if (!backend.storeAnnotations) {
+        handleErr({code:501,message:"Storing annotations not supported by this backend"});
+        return;
+    }
+    var annotation = req.body;
+    backend.storeAnnotations([annotation], function(result, err) {
+        if (!handleErr(res, err)) {
+            res.json(result[0]);
+        }
     });
 };
 
-var searchLookupGet = function(req, res) {
-    try {
-        var queryParams = req.query;
-        var metric = queryParams["m"];
-        var limit = queryParams["limit"];
-        backend.searchLookupImpl(metric, limit, queryParams["use_meta"], function(results, err) {
+var annotationDeleteImpl = function(req, res) {
+    if (!backend.deleteAnnotation) {
+        handleErr({code:501,message:"Deleting annotations not supported by this backend"});
+        return;
+    }
+    var annotation = req.body;
+    backend.deleteAnnotation(annotation, function(result, err) {
+        if (!handleErr(res, err)) {
+            res.status(204);
+        }
+    });
+};
+
+var annotationBulkPostImpl = function(req, res) {
+    if (!backend.storeAnnotations) {
+        handleErr({code:501,message:"Bulk storing annotations not supported by this backend"});
+        return;
+    }
+    backend.storeAnnotations(req.body, function(result, err) {
+        if (!handleErr(res, err)) {
+            res.json(result);
+        }
+    });
+};
+
+var searchLookupPost = function(req, res) {
+    if (!backend.searchLookupImpl) {
+        handleErr({code:501,message:"Searching not supported by this backend"});
+        return;
+    }
+    var metric = req.body.metric;
+    var limit = req.body.limit;
+    backend.searchLookupImpl(metric, limit, req.body.useMeta, function(results, err) {
+        if (!handleErr(res, err)) {
             var ret = {
                 "type": "LOOKUP",
                 "metric": metric,
@@ -124,9 +149,35 @@ var searchLookupGet = function(req, res) {
                 "time": 1,
                 "results": results,
                 "startIndex": 0,
-                "totalResults": results.length
+                "totalResults": 0
             };
             res.json(ret);
+        }
+    });
+};
+
+var searchLookupGet = function(req, res) {
+    if (!backend.searchLookupImpl) {
+        handleErr({code:501,message:"Searching not supported by this backend"});
+        return;
+    }
+    try {
+        var queryParams = req.query;
+        var metric = queryParams["m"];
+        var limit = queryParams["limit"];
+        backend.searchLookupImpl(metric, limit, queryParams["use_meta"], function(results, err) {
+            if (!handleErr(res, err)) {
+                var ret = {
+                    "type": "LOOKUP",
+                    "metric": metric,
+                    "limit": limit,
+                    "time": 1,
+                    "results": results,
+                    "startIndex": 0,
+                    "totalResults": results.length
+                };
+                res.json(ret);
+            }
         });
     }
     catch (e) {
@@ -135,22 +186,28 @@ var searchLookupGet = function(req, res) {
 };
 
 var uidMetaGet = function(req, res) {
+    if (!backend.uidMetaFromUid) {
+        handleErr({code:501,message:"Uid metadata not supported by this backend"});
+        return;
+    }
     var queryParams = req.query;
 
     backend.uidMetaFromUid(queryParams["type"], queryParams["uid"], function (meta, err) {
-        if (meta != null) {
-            res.json({
-                uid: meta.uid,
-                name: meta.name,
-                created: meta.created,
-                type: queryParams["type"].toUpperCase()
-            })
-        }
-        else {
-            res.status(404).json({
-                code: 404,
-                message: queryParams["type"] + " with uid "+queryParams["uid"]+" not found"
-            });
+        if (!handleErr(res, err)) {
+            if (meta != null) {
+                res.json({
+                    uid: meta.uid,
+                    name: meta.name,
+                    created: meta.created,
+                    type: queryParams["type"].toUpperCase()
+                })
+            }
+            else {
+                res.status(404).json({
+                    code: 404,
+                    message: queryParams["type"] + " with uid " + queryParams["uid"] + " not found"
+                });
+            }
         }
     });
 
@@ -704,7 +761,11 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
         console.log("  Down:    "+(downsampled ? downsampled : false));
         console.log("  Filters: "+JSON.stringify(filters));
     }
-    
+
+    if (!backend.performBackendQueries) {
+        callback(null, {code:501,message:"Querying timeseries not supported by this backend"});
+        return;
+    }
     backend.performBackendQueries(startTime, endTime, downsampled, metric, filters, function(rawTimeSeries, err) {
         if (err) {
             callback(null, err);
@@ -822,6 +883,10 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
                     }
 
                     if (annotations) {
+                        if (!backend.performAnnotationsQueries) {
+                            callback(null, {code:501,message:"Querying annotations not supported by this backend"});
+                            return;
+                        }
                         backend.performAnnotationsQueries(startTime, endTime, downsampleNumberComponent, participatingTimeSeries, function(annotationsArray, err) {
                             toPush.annotations = annotationsArray;
                             processTagSet(s + 1)
@@ -863,30 +928,37 @@ var queryImpl = function(start, end, mArray, arrays, ms, showQuery, annotations,
 
     var ret = [];
 
-    backend.performGlobalAnnotationsQuery(startTime, endTime, function(globalAnnotationsArray, err) {
-        if (err) {
-            res.send(err);
-            return;
-        }
-        function doNextSingleQuery(a) {
-            // m=<aggregator>:[rate[{counter[,<counter_max>[,<reset_value>]]]}:][<down_sampler>:]<metric_name>[{<tag_name1>=<grouping filter>[,...<tag_nameN>=<grouping_filter>]}][{<tag_name1>=<non grouping filter>[,...<tag_nameN>=<non_grouping_filter>]}]
-            if (a<mArray.length) {
-                performSingleMetricQuery(startTime, endTime, mArray[a], arrays, ms, showQuery, annotations, globalAnnotations, globalAnnotationsArray, showTsuids, function(series, err) {
-                    if (err) {
-                        res.send(err);
-                        return;
-                    }
+    function doNextSingleQuery(a, globalAnnotationsArray) {
+        // m=<aggregator>:[rate[{counter[,<counter_max>[,<reset_value>]]]}:][<down_sampler>:]<metric_name>[{<tag_name1>=<grouping filter>[,...<tag_nameN>=<grouping_filter>]}][{<tag_name1>=<non grouping filter>[,...<tag_nameN>=<non_grouping_filter>]}]
+        if (a<mArray.length) {
+            performSingleMetricQuery(startTime, endTime, mArray[a], arrays, ms, showQuery, annotations, globalAnnotations, globalAnnotationsArray, showTsuids, function(series, err) {
+                if (!handleErr(res, err)) {
                     ret = ret.concat(series);
                     //console.log("Added "+series.length+" series")
-                    doNextSingleQuery(a+1);
-                });
-            }
-            else {
-                res.json(ret);
-            }
+                    doNextSingleQuery(a + 1);
+                }
+            });
         }
-        doNextSingleQuery(0);
-    });
+        else {
+            res.json(ret);
+        }
+    }
+
+    if (globalAnnotations) {
+        if (!backend.performGlobalAnnotationsQuery) {
+            callback(null, {code:501,message:"Querying global annotations not supported by this backend"});
+            return;
+        }
+
+        backend.performGlobalAnnotationsQuery(startTime, endTime, function(globalAnnotationsArray, err) {
+            if (!handleErr(res, err)) {
+                doNextSingleQuery(0, globalAnnotationsArray);
+            }
+        });
+    }
+    else {
+        doNextSingleQuery(0, []);
+    }
 };
 
 var unioningFunction = function(jsons, valueProvider) {
@@ -1435,18 +1507,36 @@ var suggestImpl = function(req, res) {
     var q = (!queryParams["q"] || queryParams["q"] === "") ? null : queryParams["q"];
     switch (queryParams["type"]) {
         case "metrics":
+            if (!backend.suggestMetrics) {
+                res.json(null, {code:501,message:"Suggesting metrics not supported by this backend"});
+                return;
+            }
             backend.suggestMetrics(q, max, function(result, err) {
-                res.json(result);
+                if (!handleErr(res, err)) {
+                    res.json(result);
+                }
             });
             break;
         case "tagk":
+            if (!backend.suggestTagKeys) {
+                res.json(null, {code:501,message:"Suggesting tag keys not supported by this backend"});
+                return;
+            }
             backend.suggestTagKeys(q, max, function(result, err) {
-                res.json(result);
+                if (!handleErr(res, err)) {
+                    res.json(result);
+                }
             });
             break;
         case "tagv":
+            if (!backend.suggestTagValues) {
+                res.json(null, {code:501,message:"Suggesting tag values not supported by this backend"});
+                return;
+            }
             backend.suggestTagValues(q, max, function(result, err) {
-                res.json(result);
+                if (!handleErr(res, err)) {
+                    res.json(result);
+                }
             });
             break;
         default:

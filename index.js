@@ -101,9 +101,9 @@ var annotationPostImpl = function(req, res) {
         return;
     }
     var annotation = req.body;
-    backend.storeAnnotations([annotation], function(result, err) {
-        if (!handleErr(res, err)) {
-            res.json(result[0]);
+    backend.storeAnnotations([annotation], function(errs) {
+        if (!handleErr(res, errs[0])) {
+            res.json(annotation);
         }
     });
 };
@@ -126,10 +126,19 @@ var annotationBulkPostImpl = function(req, res) {
         handleErr({code:501,message:"Bulk storing annotations not supported by this backend"});
         return;
     }
-    backend.storeAnnotations(req.body, function(result, err) {
-        if (!handleErr(res, err)) {
-            res.json(result);
+    backend.storeAnnotations(req.body, function(errs) {
+        var errCount = 0;
+        var count = req.body.length;
+        for (var i=0; i<count; i++) {
+            if (errs[i] !== undefined) {
+                errCount++;
+            }
         }
+        if (errCount != 0) {
+            console.log("Got "+errCount+" errors whilst writing bulk annotations")
+        }
+        // todo: what do i do?
+        res.json(req.body);
     });
 };
 

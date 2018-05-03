@@ -92,6 +92,9 @@ var putImpl = function(req, res) {
         if (summary || detailed) {
             res.json(response)
         }
+        else {
+            res.send(204);
+        }
     });
 };
 

@@ -1554,6 +1554,76 @@ var suggestImpl = function(req, res) {
     }
 };
 
+var apiGateway = function(req, res) {
+    switch (req.method) {
+        case "GET":
+            switch (req.path) {
+                case "/suggest":
+                    suggestImpl(req, res);
+                    break;
+                case "/aggregators":
+                    aggregatorsImpl(req, res);
+                    break;
+                case "/search/lookup":
+                    searchLookupGet(req, res);
+                    break;
+                case "/query":
+                    queryGet(req, res);
+                    break;
+                case "/query/gexp":
+                    gexpQueryGet(req, res);
+                    break;
+                case "/version":
+                    versionGet(req, res);
+                    break;
+                case "/config":
+                    configGet(req, res);
+                    break;
+                case "/uid/uidmeta":
+                    uidMetaGet(req, res);
+                    break;
+                default:
+                    res.send(404);
+            }
+            break;
+        case "POST":
+            switch (req.path) {
+                case "/aggregators":
+                    aggregatorsImpl(req, res);
+                    break;
+                case "/annotation":
+                    annotationPostImpl(req, res);
+                    break;
+                case "/aggrannotation/bulkegators":
+                    annotationBulkPostImpl(req, res);
+                    break;
+                case "/put":
+                    putImpl(req, res);
+                    break;
+                case "/search/lookup":
+                    searchLookupPost(req, res);
+                    break;
+                case "/version":
+                    versionGet(req, res);
+                    break;
+                default:
+                    res.send(404);
+            }
+            break;
+        case 'DELETE':
+            switch (req.path) {
+                case "/annotation":
+                    annotationDeleteImpl(req, res);
+                    break;
+                default:
+                    res.send(404);
+            }
+            break;
+        default:
+            res.send(404);
+    }
+};
+
 // all routes exist here so we know what's implemented
 router.get('/suggest', suggestImpl);
 router.get('/aggregators', aggregatorsImpl);
@@ -1593,7 +1663,7 @@ var applyOverrides = function(from, to) {
     }
 };
 
-var installTsdbApi = function(app, incomingConfig) {
+var setupTsdbApi = function(incomingConfig) {
     if (!incomingConfig) {
         incomingConfig = {};
     }
@@ -1607,6 +1677,10 @@ var installTsdbApi = function(app, incomingConfig) {
     applyOverrides(incomingConfig, conf);
 
     config = conf;
+};
+
+var installTsdbApi = function(app, incomingConfig) {
+    setupTsdbApi(incomingConfig);
 
     if (config.logRequests) {
 
@@ -1617,13 +1691,20 @@ var installTsdbApi = function(app, incomingConfig) {
         });
     }
     app.use('/api',router);
-}
+};
 
 var setBackend = function(b) {
     backend = b;
 };
 
+var createApiGateway = function(backend, conf) {
+    setupTsdbApi(conf);
+    setBackend(backend);
+    return apiGateway;
+};
+
 module.exports = {
     backend: setBackend,
-    install: installTsdbApi
+    install: installTsdbApi,
+    apiGateway: createApiGateway
 }

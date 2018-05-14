@@ -778,15 +778,29 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
         callback(null, {code:501,message:"Querying timeseries not supported by this backend"});
         return;
     }
+
     backend.performBackendQueries(startTime, endTime, downsampled, metric, filters, function(rawTimeSeries, err) {
+        if (config.verbose) {
+            console.log("received callback with params:");
+            console.log("  " + JSON.stringify(rawTimeSeries));
+            console.log("  " + JSON.stringify(err));
+        }
         if (err) {
+            if (config.verbose) {
+                console.log("  Received error from backend: "+err);
+            }
             callback(null, err);
             return;
         }
+        if (config.verbose) {
+            console.log("  Received "+rawTimeSeries.length+" raw time series from backend");
+        }
         postBackendFiltering(rawTimeSeries, filters);
+        if (config.verbose) {
+            console.log("  Have "+rawTimeSeries.length+" raw time series after post- filtering");
+        }
 
         var tagsets = constructUniqueTagSetsFromRawResults(rawTimeSeries, filters);
-
         if (config.verbose) {
             console.log("  Tsets:"+JSON.stringify(tagsets));
         }
@@ -795,28 +809,9 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
         function processTagSet(s) {
             if (s<tagsets.length) {
                 var participatingTimeSeries = rawTimeSeriesForTagSet(rawTimeSeries, tagsets[s]);
-                /*
-                participatingTimeSeries = [];
-                for (var t=0; t<timeseries.length; t++) {
-                    if (timeseries[t].metric == metric) {
-                        var participating = true;
-                        for (var i=0; i<tags.length; i++) {
-                            if (timeseries[t].tags.hasOwnProperty(tags[i].tagk)) {
-                                var ind = tags[i].tagv.indexOf(timeseries[t].tags[tags[i].tagk]);
-                                if (ind < 0) {
-                                    participating = false;
-                                    break;
-                                }
-                            }
-                        }
-                        if (participating) {
-                            if (config.verbose) {
-                                console.log("    Participant: "+t);
-                            }
-                            participatingTimeSeries.push(timeseries[t]);
-                        }
-                    }
-                }*/
+                if (config.verbose) {
+                    console.log("  Have "+participatingTimeSeries.length+" time series for tagset "+s+" ("+JSON.stringify(tagsets[s])+")");
+                }
 
                 var aggregateTags = [];
                 for (var p=0; p<participatingTimeSeries.length; p++) {
@@ -830,6 +825,10 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
                             }
                         }
                     }
+                }
+                aggregateTags.sort();
+                if (config.verbose) {
+                    console.log("  Aggregate tags: "+JSON.stringify(aggregateTags));
                 }
 
                 var downsampleNumberComponent = downsampled ? downsampled.match(/^[0-9]+/) : undefined;
@@ -889,10 +888,10 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
                         toPush.globalAnnotations = globalAnnotationsArray;
                     }
 
-                    ret.push(toPush);
                     if (config.verbose) {
-                        console.log("Adding time series");
+                        console.log("  Adding time series: "+JSON.stringify(toPush));
                     }
+                    ret.push(toPush);
 
                     if (annotations) {
                         if (!backend.performAnnotationsQueries) {
@@ -900,6 +899,15 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
                             return;
                         }
                         backend.performAnnotationsQueries(startTime, endTime, downsampleNumberComponent, participatingTimeSeries, function(annotationsArray, err) {
+                            annotationsArray.sort(function (a,b) {
+                                var diff = a.startTime - b.startTime;
+                                if (diff != 0) {
+                                    return diff;
+                                }
+                                var aEndTime = a == null ? 0 : a.endTime;
+                                var bEndTime = b == null ? 0 : b.endTime;
+                                return aEndTime - bEndTime;
+                            })
                             toPush.annotations = annotationsArray;
                             processTagSet(s + 1)
                         });

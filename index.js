@@ -145,56 +145,77 @@ var annotationBulkPostImpl = function(req, res) {
     });
 };
 
-var searchLookupPost = function(req, res) {
+var parseSearchLookupQuery = function(query, callback) {
+    var ret = {
+        metric: null,
+        tags: []
+    };
+    var firstBrace = query.indexOf("{");
+    if (firstBrace === -1) {
+        ret.metric = query;
+        callback(ret, null);
+        return;
+    }
+
+    var secondBrace = query.indexOf("}", firstBrace+1);
+    if (secondBrace === -1) {
+        callback(null, "Can't parse query: '"+query+"'");
+        return;
+    }
+    if (query.indexOf("{", secondBrace+1) !== -1) {
+        callback(null, "Can't parse query: '"+query+"'");
+        return;
+    }
+
+    if (firstBrace > 0) {
+        ret.metric = query.substring(0, firstBrace);
+    }
+    ret.tags = [];
+    var tagStrings = query.substring(firstBrace+1, secondBrace).split(",");
+    for (var t=0; t<tagStrings.length; t++) {
+        if (tagStrings[t].indexOf("=") === -1) {
+            callback(null, "Can't parse query: '"+query+"'");
+            return;
+        }
+        var tagArray = tagStrings[t].split("=");
+        ret.tags.push({key:tagArray[0], value: tagArray[1]});
+    }
+
+    callback(ret, null);
+};
+
+var searchLookupImpl = function(query, limit, useMeta, res) {
     if (!backend.searchLookupImpl) {
         handleErr({code:501,message:"Searching not supported by this backend"});
         return;
     }
-    var metric = req.body.metric;
-    var limit = req.body.limit;
-    backend.searchLookupImpl(metric, limit, req.body.useMeta, function(results, err) {
+    parseSearchLookupQuery(query, function(parsedQuery, err) {
         if (!handleErr(res, err)) {
-            var ret = {
-                "type": "LOOKUP",
-                "metric": metric,
-                "limit": limit,
-                "time": 1,
-                "results": results,
-                "startIndex": 0,
-                "totalResults": 0
-            };
-            res.json(ret);
+            backend.searchLookupImpl(parsedQuery, limit, useMeta, function (results, err) {
+                if (!handleErr(res, err)) {
+                    var ret = {
+                        "type": "LOOKUP",
+                        "metric": query,
+                        "limit": limit,
+                        "time": 1,
+                        "results": results,
+                        "startIndex": 0,
+                        "totalResults": result.length
+                    };
+                    res.json(ret);
+                }
+            });
         }
     });
+}
+
+var searchLookupPost = function(req, res) {
+    searchLookupImpl(req.body.metric, req.body.limit, req.body.useMeta, res);
 };
 
 var searchLookupGet = function(req, res) {
-    if (!backend.searchLookupImpl) {
-        handleErr({code:501,message:"Searching not supported by this backend"});
-        return;
-    }
-    try {
-        var queryParams = req.query;
-        var metric = queryParams["m"];
-        var limit = queryParams["limit"];
-        backend.searchLookupImpl(metric, limit, queryParams["use_meta"], function(results, err) {
-            if (!handleErr(res, err)) {
-                var ret = {
-                    "type": "LOOKUP",
-                    "metric": metric,
-                    "limit": limit,
-                    "time": 1,
-                    "results": results,
-                    "startIndex": 0,
-                    "totalResults": results.length
-                };
-                res.json(ret);
-            }
-        });
-    }
-    catch (e) {
-        console.log(e);
-    }
+    var queryParams = req.query;
+    searchLookupImpl(queryParams["m"], queryParams["limit"], queryParams["use_meta"], res);
 };
 
 var uidMetaGet = function(req, res) {
@@ -1718,4 +1739,4 @@ module.exports = {
     backend: setBackend,
     install: installTsdbApi,
     apiGateway: createApiGateway
-}
+};

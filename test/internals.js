@@ -1370,6 +1370,42 @@ T               |   A   |   B   |   C   |   D   |   E   |   avg   |
 
         assert.deepEqual(combinedTimeSerie, expectedCombinedTimeSerie);
     });
+
+    it('correctly parses a simple metric query for search/lookup', function(done) {
+        var parseSearchLookupQuery = faketsdb.__get__("parseSearchLookupQuery");
+        parseSearchLookupQuery("some.metric", function(parsedQuery, err) {
+            assert.equal(err, null);
+            assert.deepEqual(parsedQuery, {metric:"some.metric",tags:[]});
+            done();
+        })
+    });
+
+    it('correctly parses a simple wildcard tag key query for search/lookup', function(done) {
+        var parseSearchLookupQuery = faketsdb.__get__("parseSearchLookupQuery");
+        parseSearchLookupQuery("{tagk=*}", function(parsedQuery, err) {
+            assert.equal(err, null);
+            assert.deepEqual(parsedQuery, {metric:null,tags:[{key:"tagk",value:"*"}]});
+            done();
+        })
+    });
+
+    it('correctly parses a simple wildcard tag key query for search/lookup', function(done) {
+        var parseSearchLookupQuery = faketsdb.__get__("parseSearchLookupQuery");
+        parseSearchLookupQuery("{*=tagv}", function(parsedQuery, err) {
+            assert.equal(err, null);
+            assert.deepEqual(parsedQuery, {metric:null,tags:[{key:"*",value:"tagv"}]});
+            done();
+        })
+    });
+
+    it('correctly parses a complex query for search/lookup', function(done) {
+        var parseSearchLookupQuery = faketsdb.__get__("parseSearchLookupQuery");
+        parseSearchLookupQuery("some.metric{key1=*,key2=value1,key2=value2,*=value3}", function(parsedQuery, err) {
+            assert.equal(err, null);
+            assert.deepEqual(parsedQuery, {metric:"some.metric",tags:[{key:"key1",value:"*"},{key:"key2",value:"value1"},{key:"key2",value:"value2"},{key:"*",value:"value3"}]});
+            done();
+        })
+    });
     
     
 });

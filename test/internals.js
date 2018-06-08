@@ -1406,6 +1406,24 @@ T               |   A   |   B   |   C   |   D   |   E   |   avg   |
             done();
         })
     });
+
+    it('correctly requires a valid query for search/lookup', function(done) {
+        var parseSearchLookupQuery = faketsdb.__get__("parseSearchLookupQuery");
+        parseSearchLookupQuery("", function(parsedQuery, err) {
+            assert.equal(err, "You must specify at least one metric, tagk or tagv in your query");
+            assert.equal(parsedQuery, null);
+            done();
+        })
+    });
+
+    it('correctly requires a query for search/lookup', function(done) {
+        var parseSearchLookupQuery = faketsdb.__get__("parseSearchLookupQuery");
+        parseSearchLookupQuery(null, function(parsedQuery, err) {
+            assert.equal(err, "You must specify a query");
+            assert.equal(parsedQuery, null);
+            done();
+        })
+    });
     
     
 });

@@ -146,6 +146,15 @@ var annotationBulkPostImpl = function(req, res) {
 };
 
 var parseSearchLookupQuery = function(query, callback) {
+    if (query == null) {
+        callback(null, "You must specify a query");
+        return;
+    }
+    if (query === "" || query === "{}") {
+        callback(null, "You must specify at least one metric, tagk or tagv in your query");
+        return;
+    }
+
     var ret = {
         metric: null,
         tags: []

@@ -143,7 +143,7 @@ describe('Inline FakeTSDB', function () {
 
     it('responds to GET  /api/search/lookup when one time series configured for a metric', function(done) {
         backend.searchLookupImpl = function(query, limit, useMeta, callback) {
-            assert.equal({metric:"some.metric", tags: {}}, query);
+            assert.deepEqual({metric:"some.metric", tags: []}, query);
             assert.equal(undefined, limit);
             assert.equal(undefined, useMeta);
             callback([{metric:'some.metric',tags:{host:"host1"}, tsuid: "000001000001000001"}]);
@@ -168,7 +168,7 @@ describe('Inline FakeTSDB', function () {
 
     it('responds to GET  /api/search/lookup when two time series configured for a metric', function(done) {
         backend.searchLookupImpl = function(query, limit, useMeta, callback) {
-            assert.equal({metric:"some.metric", tags: {}}, query);
+            assert.deepEqual({metric:"some.metric", tags: []}, query);
             assert.equal(undefined, limit);
             assert.equal(undefined, useMeta);
             callback([

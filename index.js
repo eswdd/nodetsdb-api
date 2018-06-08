@@ -200,7 +200,7 @@ var searchLookupImpl = function(query, limit, useMeta, res) {
                         "time": 1,
                         "results": results,
                         "startIndex": 0,
-                        "totalResults": result.length
+                        "totalResults": results.length
                     };
                     res.json(ret);
                 }

@@ -1,4 +1,5 @@
 var express = require('express');
+var cors = require('cors');
 var bodyParser = require('body-parser');
 var router = express.Router();
 router.use(bodyParser.json());
@@ -1741,7 +1742,12 @@ var setBackend = function(b) {
 var createApiGateway = function(backend, conf) {
     setupTsdbApi(conf);
     setBackend(backend);
-    return apiGateway;
+    var corsFn = cors();
+    return function(req, res) {
+        corsFn(req, res, function() {
+            helloFn(req, res);
+        });
+    }
 };
 
 module.exports = {

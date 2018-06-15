@@ -1745,7 +1745,7 @@ var createApiGateway = function(backend, conf) {
     var corsFn = cors();
     return function(req, res) {
         corsFn(req, res, function() {
-            helloFn(req, res);
+            apiGateway(req, res);
         });
     }
 };

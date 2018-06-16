@@ -644,7 +644,7 @@ describe('Inline FakeTSDB Internals', function () {
             ]
         };
 
-        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926590000, "metric1", "sum", true, false, true, false, true);
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926590000, "metric1", "sum", true, false, true, true);
 
         var expectedCombinedTimeSerie =
             {
@@ -819,7 +819,7 @@ describe('Inline FakeTSDB Internals', function () {
             ]
         };
 
-        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", false, false, true, false, true);
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", false, false, true, true);
 
         var expectedCombinedTimeSerie =
             {
@@ -860,7 +860,7 @@ describe('Inline FakeTSDB Internals', function () {
             ]
         };
 
-        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, false, true, false, true);
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, false, true, true);
 
         var expectedCombinedTimeSerie =
             {
@@ -899,7 +899,7 @@ describe('Inline FakeTSDB Internals', function () {
             ]
         };
 
-        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, false, true, false, true);
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, false, true, true);
 
         var expectedCombinedTimeSerie =
             {
@@ -949,7 +949,7 @@ describe('Inline FakeTSDB Internals', function () {
             ]
         };
 
-        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, false, true, false, true);
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, false, true, true);
 
         var expectedCombinedTimeSerie =
             {
@@ -1000,7 +1000,7 @@ describe('Inline FakeTSDB Internals', function () {
             ]
         };
 
-        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, false, true, false, true);
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, false, true, true);
 
         var expectedCombinedTimeSerie =
             {
@@ -1127,7 +1127,7 @@ T               |   A   |   B   |   C   |   D   |   E   |   avg   |
             ]
         };
 
-        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2, rawTimeSeries3, rawTimeSeries4, rawTimeSeries5], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "avg", true, false, true, false, true);
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2, rawTimeSeries3, rawTimeSeries4, rawTimeSeries5], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "avg", true, false, true, true);
 
         var expectedCombinedTimeSerie =
             {
@@ -1208,7 +1208,7 @@ T               |   A   |   B   |   C   |   D   |   E   |   avg   |
             ]
         };
 
-        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", false, true, true, false, true);
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", false, true, true, true);
 
         var expectedCombinedTimeSerie =
             {
@@ -1248,7 +1248,7 @@ T               |   A   |   B   |   C   |   D   |   E   |   avg   |
             ]
         };
 
-        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, true, true, false, true);
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, true, true, true);
 
         var expectedCombinedTimeSerie =
             {
@@ -1299,7 +1299,7 @@ T               |   A   |   B   |   C   |   D   |   E   |   avg   |
             ]
         };
 
-        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, true, true, false, true);
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, true, true, true);
 
         var expectedCombinedTimeSerie =
             {
@@ -1349,7 +1349,7 @@ T               |   A   |   B   |   C   |   D   |   E   |   avg   |
             ]
         };
 
-        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, true, true, false, true);
+        var combinedTimeSerie = combineTimeSeries([rawTimeSeries1, rawTimeSeries2], {}, ["host","type"], 1519926560000, 1519926600000, "metric1", "sum", true, true, true, true);
 
         var expectedCombinedTimeSerie =
             {

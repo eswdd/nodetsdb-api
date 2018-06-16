@@ -589,7 +589,7 @@ var downsampleSingleTimeSeriesPoints = function(dps, startTime, endTime, downsam
     return ret;
 };
 
-var combineTimeSeries = function(participatingTimeSeries, tagset, aggregateTags, startTime, endTime, metric, aggregator, ms, rate, arrays, showQuery, showTsuids) {
+var combineTimeSeries = function(participatingTimeSeries, tagset, aggregateTags, startTime, endTime, metric, aggregator, ms, rate, arrays, showTsuids) {
 
     var tsuids = [];
     for (var p=0; p<participatingTimeSeries.length; p++) {
@@ -722,10 +722,6 @@ var combineTimeSeries = function(participatingTimeSeries, tagset, aggregateTags,
         "aggregatedTags": aggregateTags,
         "dps": combinedDps
     };
-
-    if (showQuery) {
-        toPush.query = query;
-    }
 
     if (showTsuids) {
         toPush.tsuids = tsuids;
@@ -909,11 +905,11 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
                     }
 
                     // combineTimeSeries performs aggregation, interpolation as required
-                    var toPush = combineTimeSeries(participatingTimeSeries, tagsets[s], aggregateTags, firstTimeStamp, endTimeNormalisedToReturnUnits, metric, aggregator, ms, rate, arrays, showQuery, showTsuids);
+                    var toPush = combineTimeSeries(participatingTimeSeries, tagsets[s], aggregateTags, firstTimeStamp, endTimeNormalisedToReturnUnits, metric, aggregator, ms, rate, arrays, showTsuids);
 
-
-
-
+                    if (showQuery) {
+                        toPush.query = query;
+                    }
 
                     if (globalAnnotations) {
                         toPush.globalAnnotations = globalAnnotationsArray;
@@ -932,13 +928,13 @@ var performSingleMetricQuery = function(startTime, endTime, m, arrays, ms, showQ
                         backend.performAnnotationsQueries(startTime, endTime, downsampleNumberComponent, participatingTimeSeries, function(annotationsArray, err) {
                             annotationsArray.sort(function (a,b) {
                                 var diff = a.startTime - b.startTime;
-                                if (diff != 0) {
+                                if (diff !== 0) {
                                     return diff;
                                 }
                                 var aEndTime = a == null ? 0 : a.endTime;
                                 var bEndTime = b == null ? 0 : b.endTime;
                                 return aEndTime - bEndTime;
-                            })
+                            });
                             toPush.annotations = annotationsArray;
                             processTagSet(s + 1)
                         });

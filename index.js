@@ -1503,7 +1503,7 @@ sumSeries(sum:cpu.percent{host=*},sum:ifstat.bytes{host=*})
 
 
     res.json(ret);
-}
+};
 
 var queryGet = function(req, res) {
     var queryParams = req.query;
@@ -1515,7 +1515,84 @@ var queryGet = function(req, res) {
     var mArray = queryParams["m"];
     mArray = [].concat( mArray );
     queryImpl(queryParams["start"],queryParams["end"],mArray,arrayResponse,queryParams["ms"],showQuery,showAnnotations,globalAnnotations,showTsuids,res);
-}
+};
+
+var queryPost = function(req, res) {
+    var queryParams = req.body;
+    var arrayResponse = queryParams["arrays"] && queryParams["arrays"]===true;
+    var showQuery = queryParams["show_query"] && queryParams["show_query"]===true;
+    var showTsuids = queryParams["show_tsuids"] && queryParams["show_tsuids"]===true;
+    var showAnnotations = !(queryParams["no_annotations"] && queryParams["no_annotations"]===true);
+    var globalAnnotations = queryParams["global_annotations"] && queryParams["global_annotations"]===true;
+    var mArray = [];
+    var queries = [].concat(queryParams["queries"]);
+    for (var q=0; q<queries.length; q++) {
+        var query = queries[q];
+        var m = query.aggregator;
+        if (query["rate"] && query["rate"]==="true") {
+            var rateString = "rate";
+            if (query["rateOptions"]) {
+                var rateOptions = query["rateOptions"];
+                if (rateOptions["counter"] && rateOptions["counter"] === "true") {
+                    rateString += "{counter,";
+                    if (rateOptions["counterMax"]) {
+                        rateString += rateOptions["counterMax"];
+                    }
+                    rateString += ",";
+                    if (rateOptions["resetValue"]) {
+                        rateString += rateOptions["resetValue"];
+                    }
+                    if (rateOptions["dropResets"] && rateOptions["dropResets"] === "true") {
+                        rateString += ",true";
+                    }
+                    rateString += "}";
+                }
+            }
+            m += ":" + rateString;
+        }
+        if (query["downsample"]) {
+            m += ":" + query.downsample;
+        }
+        m += ":" + query.metric;
+        m += "{";
+        var tags = query["tags"];
+        var filters = query["filters"];
+        var sep = "";
+        if (tags) {
+            for (var key in tags) {
+                if (tags.hasOwnProperty(key)) {
+                    m += sep + key + "=" + tags[key];
+                    sep = ",";
+                }
+            }
+        }
+        if (filters) {
+            for (var f=0; f<filters.length; f++) {
+                var filter = filters[f];
+                if (filter["group_by"]) {
+                    m += sep + filter.tagk + "=" + filter.type + "(" + filter.filter + ")";
+                    sep = ",";
+                }
+            }
+        }
+        m += "}";
+        if (filters) {
+            sep = "{";
+            for (var f=0; f<filters.length; f++) {
+                var filter = filters[f];
+                if (!filter["group_by"]) {
+                    m += sep + filter.tagk + "=" + filter.type + "(" + filter.filter + ")";
+                    sep = ",";
+                }
+            }
+            if (sep !== "}") {
+                m += "}";
+            }
+        }
+        mArray.push(m);
+    }
+    queryImpl(queryParams["start"],queryParams["end"],mArray,arrayResponse,queryParams["ms"],showQuery,showAnnotations,globalAnnotations,showTsuids,res);
+};
 
 var gexpQueryGet = function(req, res) {
     var queryParams = req.query;
@@ -1527,7 +1604,7 @@ var gexpQueryGet = function(req, res) {
     var eArray = queryParams["exp"];
     eArray = [].concat( eArray );
     gexpQueryImpl(queryParams["start"],queryParams["end"],eArray,arrayResponse,queryParams["ms"],showQuery,showAnnotations,globalAnnotations,showTsuids,res);
-}
+};
 
 var versionGet = function(req, res) {
     res.json({
@@ -1540,11 +1617,11 @@ var versionGet = function(req, res) {
         "repo_status": "MODIFIED",
         "version": config.version
     });
-}
+};
 
 var configGet = function(req, res) {
     res.json({});
-}
+};
 
 
 
@@ -1638,6 +1715,9 @@ var apiGateway = function(req, res) {
                 case "/put":
                     putImpl(req, res);
                     break;
+                case "/query":
+                    queryPost(req, res);
+                    break;
                 case "/search/lookup":
                     searchLookupPost(req, res);
                     break;
@@ -1672,6 +1752,7 @@ router.post('/annotation', annotationPostImpl);
 router.delete('/annotation', annotationDeleteImpl);
 router.post('/annotation/bulk', annotationBulkPostImpl);
 router.get('/query', queryGet);
+router.post('/query', queryPost);
 router.get('/query/gexp', gexpQueryGet);
 router.get('/version', versionGet);
 router.post('/version', versionGet);

@@ -1669,96 +1669,77 @@ var suggestImpl = function(req, res) {
     }
 };
 
+var apiResources = {
+    "/aggregators": {
+        "GET": aggregatorsImpl,
+        "POST": aggregatorsImpl
+    },
+    "/annotation": {
+        "POST": annotationPostImpl,
+        "DELETE": annotationDeleteImpl
+    },
+    "/annotation/bulk": {
+        "POST": annotationBulkPostImpl
+    },
+    "/config": {
+        "GET": configGet
+    },
+    "/put": {
+        "POST": putImpl
+    },
+    "/query": {
+        "GET": queryGet,
+        "POST": queryPost
+    },
+    "/query/gexp": {
+        "GET": gexpQueryGet
+    },
+    "/search/lookup": {
+        "GET": searchLookupGet,
+        "POST": searchLookupPost
+    },
+    "/suggest": {
+        "GET": suggestImpl
+    },
+    "/uid/uidmeta": {
+        "GET": uidMetaGet
+    },
+    "/version": {
+        "GET": versionGet,
+        "POST": versionGet
+    }
+};
+
 var apiGateway = function(req, res) {
-    switch (req.method) {
-        case "GET":
-            switch (req.path) {
-                case "/suggest":
-                    suggestImpl(req, res);
-                    break;
-                case "/aggregators":
-                    aggregatorsImpl(req, res);
-                    break;
-                case "/search/lookup":
-                    searchLookupGet(req, res);
-                    break;
-                case "/query":
-                    queryGet(req, res);
-                    break;
-                case "/query/gexp":
-                    gexpQueryGet(req, res);
-                    break;
-                case "/version":
-                    versionGet(req, res);
-                    break;
-                case "/config":
-                    configGet(req, res);
-                    break;
-                case "/uid/uidmeta":
-                    uidMetaGet(req, res);
-                    break;
-                default:
-                    res.send(404);
-            }
-            break;
-        case "POST":
-            switch (req.path) {
-                case "/aggregators":
-                    aggregatorsImpl(req, res);
-                    break;
-                case "/annotation":
-                    annotationPostImpl(req, res);
-                    break;
-                case "/aggrannotation/bulkegators":
-                    annotationBulkPostImpl(req, res);
-                    break;
-                case "/put":
-                    putImpl(req, res);
-                    break;
-                case "/query":
-                    queryPost(req, res);
-                    break;
-                case "/search/lookup":
-                    searchLookupPost(req, res);
-                    break;
-                case "/version":
-                    versionGet(req, res);
-                    break;
-                default:
-                    res.send(404);
-            }
-            break;
-        case 'DELETE':
-            switch (req.path) {
-                case "/annotation":
-                    annotationDeleteImpl(req, res);
-                    break;
-                default:
-                    res.send(404);
-            }
-            break;
-        default:
-            res.send(404);
+    if (apiResources.hasOwnProperty(req.path)) {
+        var methods = apiResources[req.path];
+        if (methods.hasOwnProperty(req.method)) {
+            methods[req.method](req, res);
+        }
+        else {
+            res.send(405);
+        }
+    }
+    else {
+        res.send(404);
     }
 };
 
 // all routes exist here so we know what's implemented
-router.get('/suggest', suggestImpl);
-router.get('/aggregators', aggregatorsImpl);
-router.post('/aggregators', aggregatorsImpl);
-router.get('/search/lookup', searchLookupGet);
-router.post('/search/lookup', bodyParser.json(), searchLookupPost);
-router.post('/annotation', annotationPostImpl);
-router.delete('/annotation', annotationDeleteImpl);
-router.post('/annotation/bulk', annotationBulkPostImpl);
-router.get('/query', queryGet);
-router.post('/query', queryPost);
-router.get('/query/gexp', gexpQueryGet);
-router.get('/version', versionGet);
-router.post('/version', versionGet);
-router.get('/config', configGet);
-router.get('/uid/uidmeta', uidMetaGet);
-router.post('/put', putImpl);
+for (var p in apiResources) {
+    if (apiResources.hasOwnProperty(p)) {
+        var methods = apiResources[p];
+        if (methods.hasOwnProperty("GET")) {
+            router.get(p, methods["GET"]);
+        }
+        if (methods.hasOwnProperty("POST")) {
+            router.post(p, bodyParser.json(), methods["POST"]);
+        }
+        if (methods.hasOwnProperty("DELETE")) {
+            router.delete(p, methods["DELETE"]);
+        }
+    }
+}
 
 var applyOverrides = function(from, to) {
     for (var k in from) {

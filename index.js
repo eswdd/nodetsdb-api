@@ -257,6 +257,10 @@ var uidMetaGet = function(req, res) {
 };
 
 var toDateTime = function(tsdbTime) {
+    // force to string, needed for POST requests
+    if (typeof(tsdbTime)==="number") {
+        tsdbTime = "" + tsdbTime;
+    }
     if (tsdbTime.indexOf("ago")<0) {
         if (tsdbTime.indexOf("/") >= 0) {
             return moment(tsdbTime, "YYYY/MM/DD HH:mm:ss").toDate();

@@ -388,6 +388,51 @@ describe('Inline FakeTSDB', function () {
             .end(done);
     });
 
+    it('responds to GET  /api/query for a numeric date range', function(done) {
+        backend.performBackendQueries = function (startTime, endTime, downsampled, metric, filters, callback) {
+            callback([
+                {
+                    metric: "some.metric",
+                    tags: { host: {tagk:"host", tagk_uid: "001", tagv: "host1", tagv_uid: "001"} },
+                    dps: [
+                        [1521062263, 1.0],
+                        [1521062264, 2.0],
+                        [1521062265, 3.0],
+                        [1521062266, 4.0]
+                    ]
+                }
+            ]);
+        };
+        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, participatingTimeSeries, callback) {
+            callback([]);
+        };
+        backend.performGlobalAnnotationsQuery = function(startTime, endTime, callback) {
+            callback([]);
+        };
+
+        request(server)
+            .get('/api/query?start=1568281660&end=1568291660&m=sum:10s-avg:some.metric{host=host1}&arrays=true')
+            .expect('Content-Type', /json/)
+            .expect(200)
+            .expect(function(res) {
+                var body = res.body;
+                console.log(JSON.stringify(body))
+                if (body.length != 1) {
+                    return errorExpectedActual("expected returned metric count to be 1, not "+body.length, 1, body.length);
+                }
+                if (body[0].metric != "some.metric") {
+                    return errorExpectedActual("expected returned metric to be some.metric, not "+body[0].metric, "some.metric", body[0].metric);
+                }
+                if (JSON.stringify(body[0].tags) != '{\"host\":"host1"}') {
+                    return errorExpectedActual("expected returned tags to be {\"host\":\"host1\"}, not "+JSON.stringify(body[0].tags), "{\"host\":\"host1\"}", body[0].tags);
+                }
+                if (JSON.stringify(body[0].aggregatedTags) != '[]') {
+                    return errorExpectedActual("expected returned aggregated tags to be [], not "+JSON.stringify(body[0].aggregatedTags), "[]", body[0].aggregatedTags);
+                }
+            })
+            .end(done);
+    });
+
     it('responds to GET  /api/query for an aggregated call', function(done) {
         backend.performBackendQueries = function (startTime, endTime, downsampled, metric, filters, callback) {
             callback([
@@ -606,6 +651,66 @@ describe('Inline FakeTSDB', function () {
                 }
                 if (body[0].dps[0][0] < 10000000000) {
                     return errorActual("expected return datapoints to have ms timestamps, but was seconds: "+body[0].dps[0][0], body[0].dps[0][0]);
+                }
+            })
+            .end(done);
+    });
+
+    it('responds to POST  /api/query for a numeric date range', function(done) {
+        backend.performBackendQueries = function (startTime, endTime, downsampled, metric, filters, callback) {
+            callback([
+                {
+                    metric: "some.metric",
+                    tags: { host: {tagk:"host", tagk_uid: "001", tagv: "host1", tagv_uid: "001"} },
+                    dps: [
+                        [1521062263, 1.0],
+                        [1521062264, 2.0],
+                        [1521062265, 3.0],
+                        [1521062266, 4.0]
+                    ]
+                }
+            ]);
+        };
+        backend.performAnnotationsQueries = function(startTime, endTime, downsampleSeconds, participatingTimeSeries, callback) {
+            callback([]);
+        };
+        backend.performGlobalAnnotationsQuery = function(startTime, endTime, callback) {
+            callback([]);
+        };
+
+        request(server)
+            .post('/api/query')
+            .send({
+                "start": 1568281660,
+                "end": 1568381660,
+                "queries": [
+                    {
+                        "aggregator": "sum",
+                        "downsample": "10s-avg",
+                        "metric": "some.metric",
+                        "tags": {
+                            "host": "host1"
+                        }
+                    }
+                ],
+                "arrays": true
+            })
+            .expect('Content-Type', /json/)
+            .expect(200)
+            .expect(function(res) {
+                var body = res.body;
+                console.log(JSON.stringify(body))
+                if (body.length != 1) {
+                    return errorExpectedActual("expected returned metric count to be 1, not "+body.length, 1, body.length);
+                }
+                if (body[0].metric != "some.metric") {
+                    return errorExpectedActual("expected returned metric to be some.metric, not "+body[0].metric, "some.metric", body[0].metric);
+                }
+                if (JSON.stringify(body[0].tags) != '{\"host\":"host1"}') {
+                    return errorExpectedActual("expected returned tags to be {\"host\":\"host1\"}, not "+JSON.stringify(body[0].tags), "{\"host\":\"host1\"}", body[0].tags);
+                }
+                if (JSON.stringify(body[0].aggregatedTags) != '[]') {
+                    return errorExpectedActual("expected returned aggregated tags to be [], not "+JSON.stringify(body[0].aggregatedTags), "[]", body[0].aggregatedTags);
                 }
             })
             .end(done);

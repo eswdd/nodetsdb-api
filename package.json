@@ -30,7 +30,7 @@
     "express": "^4.16.2",
     "body-parser": "^1.18.2",
     "seedrandom": "^2.4.2",
-    "moment": "^2.11.2"
+    "moment": "^2.29.1"
   },
   "main": "index.js"
 }

@@ -14,7 +14,7 @@
     "istanbul": "^0.4.5",
     "mocha": "^10.2.0",
     "protractor": "^6.0.0",
-    "rewire": "^3.0.2",
+    "rewire": "^6.0.0",
     "shelljs": "^0.8.5",
     "supertest": "^6.3.3",
     "tmp": "0.0.28",

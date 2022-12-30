@@ -13,7 +13,7 @@
     "http-server": "^14.1.1",
     "istanbul": "^0.4.5",
     "mocha": "^10.2.0",
-    "protractor": "^6.0.0",
+    "protractor": "^7.0.0",
     "rewire": "^6.0.0",
     "shelljs": "^0.8.5",
     "supertest": "^6.3.3",

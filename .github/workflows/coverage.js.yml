@@ -9,10 +9,6 @@ on:
   pull_request:
     branches: [ master ]
 
-env:
-  COVERALLS_SERVICE_NAME: GitHub Actions
-  COVERALLS_GIT_BRANCH: $GITHUB_REF_NAME
-
 jobs:
   build:
 
@@ -32,4 +28,10 @@ jobs:
         cache: 'npm'
     - run: npm ci
     - run: npm test
-    - run: ./node_modules/nyc/bin/nyc.js report --reporter=lcov && cat ./coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js && rm -rf ./coverage
+    - run: ./node_modules/nyc/bin/nyc.js report --reporter=lcov
+    - name: Coveralls
+      uses: coverallsapp/github-action@v1.1.0
+      env:
+        NODE_COVERALLS_DEBUG: 1
+      with:
+        github-token: ${{ secrets.github_token }}

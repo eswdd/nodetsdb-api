@@ -1,8 +1,8 @@
 [![NPM version][npm-version-image]][npm-url]
 [![GPL License][license-image]][license-url]
-[![Build Status][travis-image]][travis-url]
+[![Build Status][github-build-image]][github-build-url]
 [![Coverage][coverage-image]][coverage-url]
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-api.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-api?ref=badge_shield)
+[![FOSSA Status][fossa-image]][fossa-url]
 
 
 # nodetsdb-api
@@ -215,11 +215,14 @@ backend.deleteAnnotation = function(annotation, callback);
 [npm-version-image]: http://img.shields.io/npm/v/nodetsdb-api.svg?style=flat
 [npm-downloads-image]: http://img.shields.io/npm/dm/nodetsdb-api.svg?style=flat
 
-[travis-url]: http://travis-ci.org/eswdd/nodetsdb-api
-[travis-image]: http://img.shields.io/travis/eswdd/nodetsdb-api/master.svg?style=flat
-
 [coverage-url]: https://coveralls.io/r/eswdd/nodetsdb-api
 [coverage-image]: https://coveralls.io/repos/github/eswdd/nodetsdb-api/badge.svg
+
+[github-build-url]: https://github.com/eswdd/nodetsdb-api/actions/workflows/node.js.yml
+[github-build-image]: https://github.com/eswdd/nodetsdb-api/actions/workflows/node.js.yml/badge.svg
+
+[fossa-url]: https://app.fossa.io/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-api?ref=badge_shield
+[fossa-image]: https://app.fossa.io/api/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-api.svg?type=shield
 
 ## License
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-api.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Feswdd%2Fnodetsdb-api?ref=badge_large)

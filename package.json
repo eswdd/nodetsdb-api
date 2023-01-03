@@ -27,7 +27,7 @@
     "test-coverage": "nyc mocha -R spec test/*"
   },
   "dependencies": {
-    "body-parser": "^1.19.2",
+    "body-parser": "^1.20.1",
     "cors": "^2.8.5",
     "express": "^4.16.2",
     "moment": "^2.29.4",

@@ -195,6 +195,9 @@ var parseSearchLookupQuery = function(query, callback) {
 };
 
 var searchLookupImpl = function(query, limit, useMeta, res) {
+    if (limit != null) {
+        limit = parseInt(limit);
+    }
     if (!backend.searchLookupImpl) {
         handleErr({code:501,message:"Searching not supported by this backend"});
         return;
@@ -225,7 +228,7 @@ var searchLookupPost = function(req, res) {
 
 var searchLookupGet = function(req, res) {
     var queryParams = req.query;
-    searchLookupImpl(queryParams["m"], parseInt(queryParams["limit"]), queryParams["use_meta"], res);
+    searchLookupImpl(queryParams["m"], queryParams["limit"], queryParams["use_meta"], res);
 };
 
 var uidMetaGet = function(req, res) {

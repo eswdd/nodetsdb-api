@@ -225,7 +225,7 @@ var searchLookupPost = function(req, res) {
 
 var searchLookupGet = function(req, res) {
     var queryParams = req.query;
-    searchLookupImpl(queryParams["m"], queryParams["limit"], queryParams["use_meta"], res);
+    searchLookupImpl(queryParams["m"], parseInt(queryParams["limit"]), queryParams["use_meta"], res);
 };
 
 var uidMetaGet = function(req, res) {

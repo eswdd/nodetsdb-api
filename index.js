@@ -195,6 +195,9 @@ var parseSearchLookupQuery = function(query, callback) {
 };
 
 var searchLookupImpl = function(query, limit, useMeta, res) {
+    if (limit != null) {
+        limit = parseInt(limit);
+    }
     if (!backend.searchLookupImpl) {
         handleErr({code:501,message:"Searching not supported by this backend"});
         return;
